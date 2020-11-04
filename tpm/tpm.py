@@ -1,5 +1,11 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2020 Johannes Holland
+# All rights reserved.
+
 import contextlib
 import json
+from pathlib import Path
+import os
 import tempfile
 
 from tpm2_pytss.binding import (
@@ -8,10 +14,13 @@ from tpm2_pytss.binding import (
     UINT8_PTR,
     UINT8_PTR_PTR,
     ByteArray,
+    TPML_PCR_SELECTION_PTR,
+    TPMT_HA_PTR,
 )
 from tpm2_pytss.exceptions import TPM2Error
-from tpm2_pytss.fapi import FAPI, FAPIDefaultConfig
+from tpm2_pytss.fapi import DEFAULT_FAPI_CONFIG_PATH, export, FAPI, FAPIDefaultConfig
 from tpm2_pytss.util.simulator import Simulator
+from typing import Any, NamedTuple
 
 
 def hexdump(byte_array, line_len=16):
@@ -32,32 +41,131 @@ class TPM:
     def __init__(self):
         self.ctx_stack = contextlib.ExitStack()
 
-        # Create TPM simulator
-        self.simulator = self.ctx_stack.enter_context(Simulator())
+        self._simulator = None
 
-        # Create temporary directories to separate this example's state
-        self.user_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
-        self.log_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
-        self.system_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
+        self._config_path = DEFAULT_FAPI_CONFIG_PATH.resolve()
+        self._config = None
+        self._config_overlay = {}
+
+        self._user_dir = None
+        self._log_dir = None
+        self._system_dir = None
+
+        self.reload()
+        # self.dummy_populate()  # TODO
+
+        self.is_keystore_provisioned
+
+    def __del__(self):
+        self.ctx_stack.pop_all()  # TODO is this right?
+
+    @property
+    def config(self):
+        return self._config
+
+    @property
+    def config_path(self):
+        return self._config_path
+
+    @config_path.setter
+    def config_path(self, value):
+        self._config_path = value
+        self.reload()
+
+    @property
+    def config_overlay(self):
+        return self._config_overlay
+
+    @config_overlay.setter
+    def config_overlay(self, value):
+        self._config_overlay = value
+        self.reload()
+
+    @property
+    def config_with_overlay(self):
+        return {**self._config, **self._config_overlay}
+
+    @property
+    def is_keystore_provisioned(self):
+        system_dir = Path(self.config_with_overlay["system_dir"])
+        profile_name = self.config_with_overlay["profile_name"]
+        return (system_dir / profile_name).is_dir()
+
+    @property
+    def is_tpm_provisioned(self):
+        return False  # TODO
+
+    @property
+    def is_consistent(self):
+        """If keystore and TPM are consistent."""
+        return False  # TODO
+
+    def _load_config(self):
+        # Parse config file into a dict
+        default_fapi_config_contents = self._config_path.read_text()
+        self._config = json.loads(default_fapi_config_contents)
+
+        # Add needed key value pairs if they do not exist in config file
+        additional_kvps = {"tcti_retry": 1}
+        self._config = {**self._config, **additional_kvps}
+
+    def _load_fapi(self):
+        # Apply the configuration overlay
+        config_with_overlay = {**self._config, **self._config_overlay}
+
+        # Create a named tuple (with an export function needed by the fapi constructor) from the dict
+        TPMConfiguration = NamedTuple(
+            "TPMConfiguration", [(e, Any) for e in config_with_overlay]
+        )
+        TPMConfiguration.export = export
+        config_tuples = TPMConfiguration(*config_with_overlay.values())
 
         # Create the FAPI object
-        fapi = FAPI(
-            FAPIDefaultConfig._replace(
-                user_dir=self.user_dir,
-                system_dir=self.system_dir,
-                log_dir=self.log_dir,
-                tcti="mssim:port=%d" % (self.simulator.port,),
-                tcti_retry=100,
-                ek_cert_less=1,
-            )
-        )
+        self.fapi = FAPI(config_tuples)
 
         # Enter the context, create TCTI connection
-        self.fapi_ctx = self.ctx_stack.enter_context(fapi)
+        self.fapi_ctx = self.ctx_stack.enter_context(self.fapi)
 
         # Fapi_Provision
-        self.fapi_ctx.Provision(None, None, None)
+        self.fapi_ctx.Provision(None, None, None)  # TODO
 
+    def reload(self, use_simulator=True, use_tmp_keystore=True):
+        """Load or reload FAPI including config and simulator."""
+        self.ctx_stack.pop_all()  # TODO is this right?
+        self._config_overlay = {}
+
+        if use_simulator:
+            # Create TPM simulator
+            self._simulator = self.ctx_stack.enter_context(Simulator())  # TODO support swtpm as well
+
+            # Add to the configuration overlay
+            simulator_config = {
+                "tcti": f"mssim:port={self._simulator.port}",
+                "tcti_retry": 3,
+                "ek_cert_less": "yes",
+            }
+            self._config_overlay = {**self._config_overlay, **simulator_config}
+
+        if use_tmp_keystore:
+            # Create temporary directories to separate this example's state
+            self._user_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
+            self._log_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
+            self._system_dir = self.ctx_stack.enter_context(
+                tempfile.TemporaryDirectory()
+            )
+
+            # Add to the configuration overlay
+            tmp_keystore_config = {
+                "user_dir": self._user_dir,
+                "system_dir": self._system_dir,
+                "log_dir": self._log_dir,
+            }
+            self._config_overlay = {**self._config_overlay, **tmp_keystore_config}
+
+        self._load_config()
+        self._load_fapi()
+
+    def dummy_populate(self):
         #         privkey = """-----BEGIN EC PRIVATE KEY-----
         # MHcCAQEEIC9A2PknCL7BFLjNDbxlPu3I5rvJGoEIQkujhSNiTblZoAoGCCqGSM49
         # AwEHoUQDQgAExgnxXp0Kj+Zuav7zbzX0COwCS/qZURF8qRef+cnkbNKCYBsZnfI3
@@ -132,9 +240,6 @@ ETHSN5KV1XCPYJmRCjFY7sIt1x4zN7JJRO9DVw+YheIlduVfkBiF+GlQgLlFTjrJ
 VrpSGMIFSu301A==
 -----END CERTIFICATE-----"""
         ret = self.fapi_ctx.SetCertificate("HS/SRK/mySigKey", cert)  # Cert
-
-    def __del__(self):
-        self.ctx_stack.pop_all()  # TODO is this right?
 
     def get_path_tree(self):
         with CHAR_PTR_PTR() as info:

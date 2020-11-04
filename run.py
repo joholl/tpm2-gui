@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2020 Johannes Holland
+# All rights reserved.
+
 """Graphical user interface to the TPM2 software stack (TSS) Feature API (FAPI) layer."""
 import itertools
 import sys
@@ -7,7 +11,8 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
-from tpm import TPM
+from tpm.tpm import TPM
+from ui.config import Config
 
 
 class ChangeLabel:
@@ -316,6 +321,8 @@ class TPMObjects(Gtk.TreeView):
         self.set_vexpand(True)
         self.set_model(self._store)
 
+        # TODO selection must be always exactly 1 (comma must not unselect)
+
         # column TPM Entity
         renderer_column_obj = Gtk.CellRendererText()
         column_obj = Gtk.TreeViewColumn("TPM Entity", renderer_column_obj, text=0)
@@ -384,7 +391,6 @@ class TPMPcrs(Gtk.TreeView):
         """
         Fetch TPM objects and update tree_view
         """
-        pass
         self._store.clear()
         for idx in itertools.count(start=0, step=1):
             value, log = self._tpm.get_pcr(idx)
@@ -456,31 +462,65 @@ class MyWindow(Gtk.Window):
 
         self._grid = Gtk.Grid(column_spacing=10, row_spacing=10)
 
+        # Path info
+        path_lbl = Gtk.Label(label="Path", xalign=0)
+        self._grid.attach(path_lbl, 0, 0, 1, 1)
+        self._path_txt = Gtk.Entry()
+        self._path_txt.set_hexpand(True)
+        self._path_txt.set_editable(False)
+        self._grid.attach(self._path_txt, 1, 0, 1, 1)
+
+        # PCR info
+        pcr_lbl = Gtk.Label(label="PCRs", xalign=0)
+        self._grid.attach(pcr_lbl, 0, 1, 1, 1)
+        self._pcr_txt = Gtk.Entry()
+        self._pcr_txt.set_hexpand(True)
+        self._pcr_txt.set_editable(False)
+        self._grid.attach(self._pcr_txt, 1, 1, 1, 1)
+
+        self._notebook = Gtk.Notebook()
+
+        # page 1: tcti, config
+        tpm_config = Config(tpm)
+        self._notebook.append_page(tpm_config, Gtk.Label(label="Config"))
+
+        # page 2: tpm objects
+        self._grid2 = Gtk.Grid(column_spacing=10, row_spacing=10)
         self._tpm_objects = TPMObjects(tpm)
-        self._grid.attach(self._tpm_objects, 0, 0, 1, 1)
-
+        self._grid2.attach(self._tpm_objects, 0, 0, 1, 1)
         # refresh_btn = Gtk.Button(label="Refresh") # TODO
-        # self._grid.attach(refresh_btn, 0, 1, 1, 1)
-
+        # self._grid2.attach(refresh_btn, 0, 1, 1, 1)
         self._tpm_details = TPMObjectDetails(tpm)
-        self._grid.attach(self._tpm_details, 1, 0, 1, 1)
+        self._grid2.attach(self._tpm_details, 1, 0, 1, 1)
+        tpm_operations = TPMObjectOperations(tpm)
+        self._grid2.attach(tpm_operations, 0, 1, 2, 1)
+        self._notebook.append_page(self._grid2, Gtk.Label(label="Paths"))
 
+        # page 3: pcrs
+        self._grid3 = Gtk.Grid(column_spacing=10, row_spacing=10)
         _tpmpcrs = TPMPcrs(tpm)
-        self._grid.attach(_tpmpcrs, 0, 1, 1, 1)
-
+        self._grid3.attach(_tpmpcrs, 0, 0, 1, 1)
         _tpmpcr_operations = TPMPcrOperations(tpm, _tpmpcrs.update)
-        self._grid.attach(_tpmpcr_operations, 1, 1, 1, 1)
+        self._grid3.attach(_tpmpcr_operations, 1, 0, 1, 1)
+        self._notebook.append_page(self._grid3, Gtk.Label(label="PCRs"))
 
-        _tpm_operations = TPMObjectOperations(tpm)
-        self._grid.attach(_tpm_operations, 0, 2, 2, 1)
-
+        # register callbacks
+        _tpmpcrs.on_selection_fcns.append(self._set_pcr_selection)
         _tpmpcrs.on_selection_fcns.append(_tpmpcr_operations.set_pcr_selection)
 
+        self._tpm_objects.on_selection_fcns.append(self._set_tpm_path)
         self._tpm_objects.on_selection_fcns.append(self._tpm_details.set_tpm_path)
         self._tpm_objects.on_selection_fcns.append(self._tpm_details.reset)
-        self._tpm_objects.on_selection_fcns.append(_tpm_operations.set_tpm_path)
+        self._tpm_objects.on_selection_fcns.append(tpm_operations.set_tpm_path)
 
+        self._grid.attach(self._notebook, 0, 2, 2, 1)
         self.add(self._grid)
+
+    def _set_tpm_path(self, path):
+        self._path_txt.set_text(path)
+
+    def _set_pcr_selection(self, selection):
+        self._pcr_txt.set_text(str(selection))
 
     def update(self):
         """Update the all widget states."""

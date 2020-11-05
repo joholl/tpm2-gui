@@ -459,6 +459,9 @@ class MyWindow(Gtk.Window):
         Gtk.Window.__init__(self, title="Library", application=app)
         self.set_default_size(1500, 1000)
         self.set_border_width(10)
+        self.set_wmclass ("tpm2-gui", "tpm2-gui")
+        self.set_title ("tpm2-gui")
+        self.set_icon_from_file('resources/tpm.svg')
 
         self._grid = Gtk.Grid(column_spacing=10, row_spacing=10)
 

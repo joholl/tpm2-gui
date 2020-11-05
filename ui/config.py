@@ -3,6 +3,7 @@
 # All rights reserved.
 
 import gi
+from pathlib import Path
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -124,7 +125,7 @@ class Config(Gtk.Grid):
         self.update()
 
     def _on_config_path_btn_clicked(self, button):  # pylint: disable=unused-argument
-        dlg = Gtk.FileChooserDialog(
+        dialog = Gtk.FileChooserDialog(
             "Open",
             None,
             Gtk.FileChooserAction.OPEN,
@@ -134,9 +135,14 @@ class Config(Gtk.Grid):
                 Gtk.STOCK_OPEN,
                 Gtk.ResponseType.OK,
             ),
-        )  # TODO crashes on NixOs
-        response = dlg.run()
-        self.text.set_text(dlg.get_filename())
+        )
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            self._tpm.config_path = Path(dialog.get_filename())
+            # TODO catch error and pop error message if file is not valid json/fapi config
+        dialog.destroy()
+
+        self.update()
 
     def _on_config_changed(self, *args):  # pylint: disable=unused-argument
         """Called whenever the config, the path to the config or the config overlay changes."""

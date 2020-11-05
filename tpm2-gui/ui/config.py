@@ -122,6 +122,12 @@ class Config(Gtk.Grid):
         self.attach(self._consistent_value_lbl, 1, row, 1, 1)
         row += 1
 
+        self._add_dummy_obj_btn = Gtk.Button(label="Add Dummy Objects")
+        self.attach(self._add_dummy_obj_btn, 1, row, 1, 1)     # TODO
+        self._provision_btn = Gtk.Button(label="Provision TPM & Keystore")
+        self.attach(self._provision_btn, 2, row, 1, 1)     # TODO
+        row += 1
+
         self.update()
 
     def _on_config_path_btn_clicked(self, button):  # pylint: disable=unused-argument
@@ -158,3 +164,6 @@ class Config(Gtk.Grid):
         self._keystore_provisioned_value_lbl.set_text(str(self._tpm.is_keystore_provisioned))
         self._tpm_provisioned_value_lbl.set_text(str(self._tpm.is_tpm_provisioned))
         self._consistent_value_lbl.set_text(str(self._tpm.is_consistent))
+
+        self._add_dummy_obj_btn.set_sensitive(False)
+        self._provision_btn.set_sensitive(not self._tpm.is_keystore_provisioned)

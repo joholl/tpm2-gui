@@ -87,9 +87,7 @@ class Config(Gtk.Grid):
         row += 1
 
         self._sim_chkbtn = Gtk.CheckButton()
-        self._sim_chkbtn.set_label(
-            "Use Simulator"
-        )  # TODO + pulldown menu: which mssim vs swtpm
+        self._sim_chkbtn.set_label("Use Simulator")  # TODO + pulldown menu: which mssim vs swtpm
         self._sim_chkbtn.set_active(True)
         self.attach(self._sim_chkbtn, 0, row, 3, 1)
         row += 1
@@ -138,12 +136,7 @@ class Config(Gtk.Grid):
             "Open",
             None,
             Gtk.FileChooserAction.OPEN,
-            (
-                Gtk.STOCK_CANCEL,
-                Gtk.ResponseType.CANCEL,
-                Gtk.STOCK_OPEN,
-                Gtk.ResponseType.OK,
-            ),
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK,),
         )
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
@@ -164,9 +157,7 @@ class Config(Gtk.Grid):
     def update(self):
         self.config_list.update()
 
-        self._keystore_provisioned_value_lbl.set_text(
-            str(self._tpm.is_keystore_provisioned)
-        )
+        self._keystore_provisioned_value_lbl.set_text(str(self._tpm.is_keystore_provisioned))
         self._tpm_provisioned_value_lbl.set_text(str(self._tpm.is_tpm_provisioned))
         self._consistent_value_lbl.set_text(str(self._tpm.is_consistent))
 

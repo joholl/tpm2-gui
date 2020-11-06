@@ -29,20 +29,14 @@ class ObjectDetails(Gtk.Grid):
         self.attach(self._path_txt, 1, 0, 1, 1)
 
         self._description_clbl = ChangeLabel(
-            "Description",
-            self._tpm.get_description,
-            self._tpm.set_description,
-            self._get_tpm_path,
+            "Description", self._tpm.get_description, self._tpm.set_description, self._get_tpm_path,
         )
         self.attach(self._description_clbl.label, 0, 1, 1, 1)
         self.attach(self._description_clbl.textview, 1, 1, 1, 1)
         self.attach(self._description_clbl.button, 2, 1, 1, 1)
 
         self._appdata_clbl = ChangeLabel(
-            "Application Data",
-            self._tpm.get_appdata,
-            self._tpm.set_appdata,
-            self._get_tpm_path,
+            "Application Data", self._tpm.get_appdata, self._tpm.set_appdata, self._get_tpm_path,
         )
         self.attach(self._appdata_clbl.label, 0, 2, 1, 1)
         self.attach(self._appdata_clbl.textview, 1, 2, 1, 1)
@@ -81,10 +75,7 @@ class ObjectDetails(Gtk.Grid):
         self.attach(policy_scroll, 1, 5, 1, 1)
 
         self._cert_clbl = ChangeLabel(
-            "Certificate",
-            self._tpm.get_certificate,
-            self._tpm.set_certificate,
-            self._get_tpm_path,
+            "Certificate", self._tpm.get_certificate, self._tpm.set_certificate, self._get_tpm_path,
         )
         self.attach(self._cert_clbl.label, 0, 6, 1, 1)
         self.attach(self._cert_clbl.textview, 1, 6, 1, 1)

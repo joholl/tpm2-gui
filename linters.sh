@@ -1,7 +1,7 @@
 #!/bin/sh
 
-module="tpm2-gui"  # TODO _
-files=$(find ${module} -name '*.py')
+module="tpm2_gui"
+files="$(find ${module} -name '*.py' | xargs)"
 license_tmplate="setup.py"
 
 # Check that licenses are consistent
@@ -14,3 +14,10 @@ for f in ${files}; do
         exit 1
     fi
 done
+
+isort ${files}
+black ${module}
+pylint ${module}
+mypy ${module}  #TODO
+flake8 ${module}
+bandit -r ${module}

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 # Copyright (c) 2020 Johannes Holland
 # All rights reserved.
+"""Interface to the TPM."""
 
 import contextlib
 import json
@@ -29,16 +30,17 @@ from tpm2_pytss.util.simulator import Simulator
 
 
 def hexdump(byte_array, line_len=16):
+    """Get hexdump from bytearray."""
     char_map = "".join([(len(repr(chr(b))) == 3) and chr(b) or "." for b in range(256)])
     lines = []
 
     # for each line
     for offset in range(0, len(byte_array), line_len):
-        text = byte_array[offset : offset + line_len]
-        hex = " ".join(["%02x" % b for b in text])
+        line_text = byte_array[offset : offset + line_len]
+        line_hex = " ".join(["%02x" % b for b in line_text])
         # replace non-printable chars with '.'
-        printable = "".join(["%s" % ((b <= 127 and char_map[b]) or ".") for b in text])
-        lines.append("%04x  %-*s  |%s|\n" % (offset, line_len * 3, hex, printable))
+        printable = "".join(["%s" % ((b <= 127 and char_map[b]) or ".") for b in line_text])
+        lines.append("%04x  %-*s  |%s|\n" % (offset, line_len * 3, line_hex, printable))
     return "".join(lines)
 
 
@@ -66,43 +68,56 @@ class TPM:
 
     @property
     def config(self):
+        """Get the JSON configuration loaded from the file."""
         return self._config
 
     @property
     def config_path(self):
+        """Get the path from which the configuration was loaded."""
         return self._config_path
 
     @config_path.setter
     def config_path(self, value):
+        """Set the configuration path (and reload FAPI)."""
+        config_old = self._config_path = value
         self._config_path = value
-        self.reload()
+        try:
+            self.reload()
+        except:  # TODO
+            # rollback
+            self._config_path = config_old
 
     @property
     def config_overlay(self):
+        """Get the configuration overlay."""
         return self._config_overlay
 
     @config_overlay.setter
     def config_overlay(self, value):
+        """Set the configuration overlay to enforce a set of custom settings."""
         self._config_overlay = value
         self.reload()
 
     @property
     def config_with_overlay(self):
+        """Get the loaded JSON configuration including the custom overlay."""
         return {**self._config, **self._config_overlay}
 
     @property
     def is_keystore_provisioned(self):
+        """Determine if the TPM FAPI keystore is provisioned."""
         system_dir = Path(self.config_with_overlay["system_dir"])
         profile_name = self.config_with_overlay["profile_name"]
         return (system_dir / profile_name).is_dir()
 
     @property
     def is_tpm_provisioned(self):
+        """Determine if the TPM is provisioned."""
         return False  # TODO
 
     @property
     def is_consistent(self):
-        """If keystore and TPM are consistent."""
+        """If FAPI keystore and TPM state is consistent."""
         return False  # TODO
 
     def _load_config(self):
@@ -119,11 +134,9 @@ class TPM:
         config_with_overlay = {**self._config, **self._config_overlay}
 
         # Create a named tuple (with an export function needed by the fapi constructor) from the dict
-        TPMConfiguration = NamedTuple(
-            "TPMConfiguration", [(e, Any) for e in config_with_overlay]
-        )
-        TPMConfiguration.export = export
-        config_tuples = TPMConfiguration(*config_with_overlay.values())
+        tpm_configuration = NamedTuple("tpm_configuration", [(e, Any) for e in config_with_overlay])
+        tpm_configuration.export = export
+        config_tuples = tpm_configuration(*config_with_overlay.values())
 
         # Create the FAPI object
         self.fapi = FAPI(config_tuples)
@@ -135,7 +148,7 @@ class TPM:
         self.fapi_ctx.Provision(None, None, None)  # TODO
 
     def reload(self, use_simulator=True, use_tmp_keystore=True):
-        """Load or reload FAPI including config and simulator."""
+        """Load or reload FAPI including configuration and simulator."""
         self.ctx_stack.pop_all()  # TODO is this right?
         self._config_overlay = {}
 
@@ -157,9 +170,7 @@ class TPM:
             # Create temporary directories to separate this example's state
             self._user_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
             self._log_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
-            self._system_dir = self.ctx_stack.enter_context(
-                tempfile.TemporaryDirectory()
-            )
+            self._system_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
 
             # Add to the configuration overlay
             tmp_keystore_config = {
@@ -173,6 +184,7 @@ class TPM:
         self._load_fapi()
 
     def dummy_populate(self):
+        """Populate the FAPI with dummy objects."""
         #         privkey = """-----BEGIN EC PRIVATE KEY-----
         # MHcCAQEEIC9A2PknCL7BFLjNDbxlPu3I5rvJGoEIQkujhSNiTblZoAoGCCqGSM49
         # AwEHoUQDQgAExgnxXp0Kj+Zuav7zbzX0COwCS/qZURF8qRef+cnkbNKCYBsZnfI3
@@ -182,9 +194,9 @@ class TPM:
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUymzBzI3LcxRpqJkiP0Ks7qp1UZH
 93mYpmfUJBjK6anQawTyy8k87MteUdP5IPy47gzsO7sFcbWCoVZ8LvoQUw==
 -----END PUBLIC KEY-----"""
-        ret = self.fapi_ctx.Import("/ext/myExtPubKey", pubkey)
+        self.fapi_ctx.Import("/ext/myExtPubKey", pubkey)
 
-        policy = """{
+        policy = r"""{
     "description":"Description pol_signed",
     "policy":[
         {
@@ -199,17 +211,10 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUymzBzI3LcxRpqJkiP0Ks7qp1UZH
         ret = self.fapi_ctx.Import("/policy/myPolicy", policy)  # policy
 
         # TODO create some objects for debugging
+        ret = self.fapi_ctx.CreateKey("HS/SRK/mySigKey", "noDa, sign", "", "")  # signature
+        ret = self.fapi_ctx.CreateKey("HS/SRK/myDecKey", "noDa, decrypt", "", "")  # decrypt
         ret = self.fapi_ctx.CreateKey(
-            "HS/SRK/mySigKey", "noDa, sign", "", ""
-        )  # signature
-        ret = self.fapi_ctx.CreateKey(
-            "HS/SRK/myDecKey", "noDa, decrypt", "", ""
-        )  # decrypt
-        ret = self.fapi_ctx.CreateKey(
-            "HS/SRK/myRestrictedSignKey",
-            "noDa, sign, restricted",
-            "/policy/myPolicy",
-            "",
+            "HS/SRK/myRestrictedSignKey", "noDa, sign, restricted", "/policy/myPolicy", "",
         )  # restricted
 
         # ret = self.fapi_ctx.CreateSeal("HS/SRK/mySeal", "noDa", 12, "", "", "Hello World!")
@@ -249,6 +254,7 @@ VrpSGMIFSu301A==
         ret = self.fapi_ctx.SetCertificate("HS/SRK/mySigKey", cert)  # Cert
 
     def get_path_tree(self):
+        """Get paths of TPM FAPI objects in a tree structure."""
         with CHAR_PTR_PTR() as info:
             info = self.fapi_ctx.List("", info)
 
@@ -256,7 +262,7 @@ VrpSGMIFSu301A==
         for path in info.split(":"):
             subtree = tree
 
-            while path != None:
+            while path is not None:
                 parent = path.split("/", 1)[0]
                 try:
                     path = path.split("/", 1)[1]
@@ -271,6 +277,7 @@ VrpSGMIFSu301A==
         return tree
 
     def get_description(self, path):
+        """Get description from TPM object path."""
         try:
             with CHAR_PTR_PTR() as description:
                 description = self.fapi_ctx.GetDescription(path, description)
@@ -279,69 +286,76 @@ VrpSGMIFSu301A==
         return description
 
     def set_description(self, path, description):
+        """Set description via TPM object path."""
         self.fapi_ctx.SetDescription(path, description)
 
     def get_appdata(self, path):
+        """Get application data from TPM object path."""
         try:
-            with UINT8_PTR_PTR() as appData:
-                with SIZE_T_PTR() as appDataSize:
-                    appdata = self.fapi_ctx.GetAppData(path, appData, appDataSize)
+            with UINT8_PTR_PTR() as app_data:
+                with SIZE_T_PTR() as app_data_size:
+                    appdata = self.fapi_ctx.GetAppData(path, app_data, app_data_size)
                     appdata = hexdump(appdata)
         except TPM2Error:
             appdata = None
         return appdata
 
-    def set_appdata(self, path, appdata):
-        with UINT8_PTR() as appData:
-            # TODO appData = "This is the App Data"
-            appDataSize = len(appdata)  # TODO
-            self.fapi_ctx.SetAppData(path, appData, appDataSize)
+    def set_appdata(self, path, data):
+        """Set application data via TPM object path."""
+        with UINT8_PTR() as app_data:
+            # TODO app_data = "This is the App Data"
+            app_data_size = len(appdata)  # TODO
+            self.fapi_ctx.SetAppData(path, app_data, app_data_size)
 
     def get_certificate(self, path):
+        """Get certifiacte from TPM object path."""
         # if path == "/P_ECCP256SHA256":
         #     with UINT8_PTR_PTR() as certificates:
         #         with SIZE_T_PTR() as certificatesSize:
         #             ret = self.fapi_ctx.GetPlatformCertificates(certificates, certificatesSize)
         #             print(ret)
         try:
-            with CHAR_PTR_PTR() as x509certData:
-                cert = self.fapi_ctx.GetCertificate(path, x509certData)
+            with CHAR_PTR_PTR() as x509_cert_data:
+                cert = self.fapi_ctx.GetCertificate(path, x509_cert_data)
         except TPM2Error:
             cert = None
         return cert
 
     def set_certificate(self, path, cert):
+        """Set certifiacte via TPM object path."""
         self.fapi_ctx.SetCertificate(path, cert)
 
     def get_pcr(self, index):
+        """Get single Platform Configuration Register value from index."""
         # TODO fetch multiple pcrs at once
         try:
-            with UINT8_PTR_PTR() as pcrValue:
-                with SIZE_T_PTR() as pcrValueSize:
-                    with CHAR_PTR_PTR() as pcrLog:
-                        pcrValue, pcrLog = self.fapi_ctx.PcrRead(
-                            index, pcrValue, pcrValueSize, pcrLog
+            with UINT8_PTR_PTR() as pcr_value:
+                with SIZE_T_PTR() as pcr_value_size:
+                    with CHAR_PTR_PTR() as pcr_log:
+                        pcr_value, pcr_log = self.fapi_ctx.PcrRead(
+                            index, pcr_value, pcr_value_size, pcr_log
                         )
 
         except TPM2Error:
-            pcrValue = None
-            pcrLog = None
+            pcr_value = None
+            pcr_log = None
 
-        return (pcrValue, pcrLog)
+        return (pcr_value, pcr_log)
 
     def get_public_private_policy(self, path):
+        """Get public and private portion as well as policy from TPM object path."""
         try:
-            with UINT8_PTR_PTR() as tpm2bPublic:
-                with SIZE_T_PTR() as tpm2bPublicSize:
-                    with UINT8_PTR_PTR() as tpm2bPrivate:
-                        with SIZE_T_PTR() as tpm2bPrivateSize:
+            with UINT8_PTR_PTR() as tpm2b_public:
+                with SIZE_T_PTR() as tpm2b_public_size:
+                    with UINT8_PTR_PTR() as tpm2b_private:
+                        with SIZE_T_PTR() as tpm2b_private_size:
                             with CHAR_PTR_PTR() as policy:
                                 public, private, policy = self.fapi_ctx.GetTpmBlobs(
                                     path,
-                                    tpm2bPublic,
-                                    tpm2bPublicSize,
-                                    tpm2bPrivate,
-                                    tpm2bPrivateSize,
+                                    tpm2b_public,
+                                    tpm2b_public_size,
+                                    tpm2b_private,
+                                    tpm2b_private_size,
                                     policy,
                                 )
                                 public = hexdump(public)
@@ -361,9 +375,10 @@ VrpSGMIFSu301A==
         return (public, private, policy)
 
     def get_policy(self, path):
+        """Get policy from TPM object path."""
         try:
-            with CHAR_PTR_PTR() as jsonPolicy:
-                policy = self.fapi_ctx.ExportPolicy(path, jsonPolicy)
+            with CHAR_PTR_PTR() as json_policy:
+                policy = self.fapi_ctx.ExportPolicy(path, json_policy)
                 if policy is not None:
                     policy = json.dumps(policy, indent=3)
                 else:
@@ -373,12 +388,13 @@ VrpSGMIFSu301A==
         return policy
 
     def get_nvdata(self, path):
+        """Get NV data from TPM object path."""
         # print("V----")  # TODO rm
         try:
             with UINT8_PTR_PTR() as data:
                 with SIZE_T_PTR() as size:
-                    with CHAR_PTR_PTR() as logData:
-                        ret = self.fapi_ctx.NvRead(path, data, size, logData)
+                    with CHAR_PTR_PTR() as log_data:
+                        ret = self.fapi_ctx.NvRead(path, data, size, log_data)
                         print(ret)
         except TPM2Error:
             # print("A----")  # TODO rm
@@ -386,6 +402,7 @@ VrpSGMIFSu301A==
         return None
 
     def encrypt(self, path, plaintext):
+        """Encrypt plaintext using TPM object specified via its path."""
         if plaintext:
             print('encrypt "' + str(plaintext) + '" with ' + str(path))
 
@@ -414,21 +431,23 @@ VrpSGMIFSu301A==
         return ""
 
     def decrypt(self, path, ciphertext):
+        """Decrypt ciphertext using TPM object specified via its path."""
         return ciphertext.lower()
 
     def sign(self, path, message):
+        """Sign message using TPM object specified via its path."""
         return message.upper()
 
     def verify(self, path, signature):
+        """Verify signature using TPM object specified via its path."""
         return signature.lower()
 
     def auth_policy(self, policy_path, key_path):
+        """TODO"""
         print("---- AuthorizePolicy")  # TODO rm
         try:
             with UINT8_PTR(value=0) as policy_ref:
-                ret = self.fapi_ctx.AuthorizePolicy(
-                    policy_path, key_path, policy_ref, 0
-                )
+                ret = self.fapi_ctx.AuthorizePolicy(policy_path, key_path, policy_ref, 0)
                 print(ret)
         except TPM2Error:
             # print("A----")  # TODO rm
@@ -436,28 +455,28 @@ VrpSGMIFSu301A==
         return None
 
     def pcr_extend(self, indices):
+        """Extend TPM Platform Configuration Register."""
         for idx in indices:
             try:
                 with UINT8_PTR(value=1) as data:
-                    ret = self.fapi_ctx.PcrExtend(
-                        idx, data, 1, '{ "some": "data" }'
-                    )  # TODO
+                    ret = self.fapi_ctx.PcrExtend(idx, data, 1, '{ "some": "data" }')  # TODO
             except TPM2Error:
                 pass
             # return policy
 
     def quote(self, path, indices):
+        """TODO"""
         try:
             # with pcrList(size=len(indices), buffer=indices) as pcrList:
-            with UINT32_PTR(len(indices)) as pcrListSize:
-                with UINT8_PTR(value=1) as qualifyingData:
+            with UINT32_PTR(len(indices)) as pcr_list_size:
+                with UINT8_PTR(value=1) as qualifying_data:
                     with UINT8_PTR(value=1) as signature:
                         ret = self.fapi_ctx.Quote(
                             indices,
-                            pcrListSize.ptr(),
+                            pcr_list_size.ptr(),
                             path,
                             "TPM-Quote",
-                            qualifyingData,
+                            qualifying_data,
                             1,
                             "",
                             signature,
@@ -474,10 +493,10 @@ VrpSGMIFSu301A==
     #     TSS2_RC Fapi_Quote(
     # FAPI_CONTEXT   *context,
     # uint32_t       *pcrList,
-    # size_t          pcrListSize,
+    # size_t          pcr_list_size,
     # char     const *keyPath,
     # char     const *quoteType,
-    # uint8_t  const *qualifyingData,
+    # uint8_t  const *qualifying_data,
     # size_t          qualifyingDataSize,
     # char          **quoteInfo,
     # uint8_t       **signature,

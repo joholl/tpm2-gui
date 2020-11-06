@@ -4,23 +4,28 @@
 
 import contextlib
 import json
-from pathlib import Path
 import os
 import tempfile
+from pathlib import Path
+from typing import Any, NamedTuple
 
 from tpm2_pytss.binding import (
     CHAR_PTR_PTR,
     SIZE_T_PTR,
+    TPML_PCR_SELECTION_PTR,
+    TPMT_HA_PTR,
     UINT8_PTR,
     UINT8_PTR_PTR,
     ByteArray,
-    TPML_PCR_SELECTION_PTR,
-    TPMT_HA_PTR,
 )
 from tpm2_pytss.exceptions import TPM2Error
-from tpm2_pytss.fapi import DEFAULT_FAPI_CONFIG_PATH, export, FAPI, FAPIDefaultConfig
+from tpm2_pytss.fapi import (
+    DEFAULT_FAPI_CONFIG_PATH,
+    FAPI,
+    FAPIDefaultConfig,
+    export,
+)
 from tpm2_pytss.util.simulator import Simulator
-from typing import Any, NamedTuple
 
 
 def hexdump(byte_array, line_len=16):
@@ -136,7 +141,9 @@ class TPM:
 
         if use_simulator:
             # Create TPM simulator
-            self._simulator = self.ctx_stack.enter_context(Simulator())  # TODO support swtpm as well
+            self._simulator = self.ctx_stack.enter_context(
+                Simulator()
+            )  # TODO support swtpm as well
 
             # Add to the configuration overlay
             simulator_config = {

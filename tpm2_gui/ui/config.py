@@ -2,10 +2,13 @@
 # Copyright (c) 2020 Johannes Holland
 # All rights reserved.
 
-import gi
 from pathlib import Path
 
-gi.require_version("Gtk", "3.0")
+import gi  # isort:skip
+
+gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
+
+# isort:imports-thirdparty
 from gi.repository import Gtk
 
 
@@ -105,14 +108,14 @@ class Config(Gtk.Grid):
         self._keystore_provisioned_value_lbl = Gtk.Label(label="Yes", xalign=0)
         self.attach(self._keystore_provisioned_value_lbl, 1, row, 1, 1)
         keystore_clear_btn = Gtk.Button(label="Clear Keystore")
-        self.attach(keystore_clear_btn, 2, row, 1, 1)     # TODO
+        self.attach(keystore_clear_btn, 2, row, 1, 1)  # TODO
         row += 1
 
         tpm_provisioned_lbl = Gtk.Label(label="TPM provisioned", xalign=0)
         self.attach(tpm_provisioned_lbl, 0, row, 1, 1)
         self._tpm_provisioned_value_lbl = Gtk.Label(xalign=0)
         self.attach(self._tpm_provisioned_value_lbl, 1, row, 1, 1)
-        tpm_clear_btn = Gtk.Button(label="Clear TPM")     # TODO
+        tpm_clear_btn = Gtk.Button(label="Clear TPM")  # TODO
         self.attach(tpm_clear_btn, 2, row, 1, 1)
         row += 1
 
@@ -123,9 +126,9 @@ class Config(Gtk.Grid):
         row += 1
 
         self._add_dummy_obj_btn = Gtk.Button(label="Add Dummy Objects")
-        self.attach(self._add_dummy_obj_btn, 1, row, 1, 1)     # TODO
+        self.attach(self._add_dummy_obj_btn, 1, row, 1, 1)  # TODO
         self._provision_btn = Gtk.Button(label="Provision TPM & Keystore")
-        self.attach(self._provision_btn, 2, row, 1, 1)     # TODO
+        self.attach(self._provision_btn, 2, row, 1, 1)  # TODO
         row += 1
 
         self.update()
@@ -161,7 +164,9 @@ class Config(Gtk.Grid):
     def update(self):
         self.config_list.update()
 
-        self._keystore_provisioned_value_lbl.set_text(str(self._tpm.is_keystore_provisioned))
+        self._keystore_provisioned_value_lbl.set_text(
+            str(self._tpm.is_keystore_provisioned)
+        )
         self._tpm_provisioned_value_lbl.set_text(str(self._tpm.is_tpm_provisioned))
         self._consistent_value_lbl.set_text(str(self._tpm.is_consistent))
 

@@ -1,6 +1,12 @@
-import gi
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2020 Johannes Holland
+# All rights reserved.
 
-gi.require_version("Gtk", "3.0")
+import gi  # isort:skip
+
+gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
+
+# isort:imports-thirdparty
 from gi.repository import Gtk
 
 

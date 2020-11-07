@@ -11,7 +11,6 @@ gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
 # isort:imports-thirdparty
 from gi.repository import Gtk
 
-# isort:imports-firstparty
 from .widgets import ChangeLabel
 
 

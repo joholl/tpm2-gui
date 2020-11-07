@@ -1,2 +1,6 @@
 [flake8]
-max-line-length = 100
+max-line-length = 120
+# E203: whitespace before ':' (false positive for slicing), black handles these
+# E402: module level import not at top of file (false positive for import version enforcement)
+# W503: line break before binary operator (formatted as such by black)
+ignore = E203,E402,W503

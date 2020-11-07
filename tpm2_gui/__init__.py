@@ -12,12 +12,11 @@ gi.require_version("Gdk", "3.0")  # pylint: disable=wrong-import-position
 gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
 
 # isort:imports-thirdparty
-from gi.repository import Gdk, Gtk
+from gi.repository import Gdk, Gtk  # noqa: E402
 from tpm.tpm import TPM
 from ui.config import Config
 from ui.objects import ObjectDetails, Objects
 from ui.pcrs import PcrOperations, Pcrs
-from ui.widgets import ChangeLabel
 
 # isort:imports-firstparty
 
@@ -193,6 +192,7 @@ class MyWindow(Gtk.Window):
                 self._notebook.remove_page(self._notebook.page_num(self._grid2))
             if self._notebook.page_num(self._grid3) > -1:
                 self._notebook.remove_page(self._notebook.page_num(self._grid3))
+
 
 class MyApplication(Gtk.Application):
     """TPM GUI application."""

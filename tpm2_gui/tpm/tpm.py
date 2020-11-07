@@ -18,11 +18,7 @@ from tpm2_pytss.binding import (
     ByteArray,
 )
 from tpm2_pytss.exceptions import TPM2Error
-from tpm2_pytss.fapi import (
-    DEFAULT_FAPI_CONFIG_PATH,
-    FAPI,
-    export,
-)
+from tpm2_pytss.fapi import DEFAULT_FAPI_CONFIG_PATH, FAPI, export
 from tpm2_pytss.util.simulator import Simulator
 
 
@@ -137,7 +133,9 @@ class TPM:  # pylint: disable=too-many-public-methods
         # Create a named tuple (with an export function needed by the fapi constructor) from the dict
         tpm_configuration = NamedTuple("tpm_configuration", [(e, Any) for e in config_with_overlay])
         tpm_configuration.export = export
-        config_tuples = tpm_configuration(*config_with_overlay.values())  # pylint: disable=not-callable
+        config_tuples = tpm_configuration(  # pylint: disable=not-callable
+            *config_with_overlay.values()
+        )
 
         # Create the FAPI object
         self._fapi = FAPI(config_tuples)
@@ -204,7 +202,7 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUymzBzI3LcxRpqJkiP0Ks7qp1UZH
         {
             "type": "POLICYSIGNED",
             "publicKeyHint": "Test key hint",
-            "keyPEM": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoGL6IrCSAznmIIzBessI\nmW7tPOUy78uWTIaub32KnYHn78KXprrZ3ykp6WDrOQeMjv4AA+14mJbg77apVYXy\nEnkFdOMa1hszSJnp6cJvx7ILngLvFUxzbVki\/ehvgS3nRk67Njal+nMTe8hpe3UK\nQeV\/Ij+F0r6Yz91W+4LPmncAiUesRZLetI2BZsKwHYRMznmpIYpoua1NtS8QpEXR\nMmsUue19eS\/XRAPmmCfnb5BX2Tn06iCpk6wO+RfMo9etcX5cLSAuIYEQYCvV2\/0X\nTfEw607vttBN0Y54LrVOKno1vRXd5sxyRlfB0WL42F4VG5TfcJo5u1Xq7k9m9K57\n8wIDAQAB\n-----END PUBLIC KEY-----\n",
+            -----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n
             "keyPEMhashAlg": "SHA1"
         }
     ]

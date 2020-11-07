@@ -92,6 +92,16 @@ class MyWindow(Gtk.Window):
         self.set_title("tpm2-gui")
         self.set_icon_from_file("resources/tpm.svg")
 
+        css = b"""notebook > * {
+            /* background: yellow; */
+        }"""
+        self.style_provider = Gtk.CssProvider()
+        self.style_provider.load_from_data(css)
+
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), self.style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
         self._grid = Gtk.Grid(column_spacing=10, row_spacing=10)
 
         # Path info

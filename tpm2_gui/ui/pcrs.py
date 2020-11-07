@@ -2,6 +2,8 @@
 # Copyright (c) 2020 Johannes Holland
 # All rights reserved.
 
+"""Widgets to interact with TPM Platform Configuration Registers."""
+
 import itertools
 
 import gi  # isort:skip
@@ -102,9 +104,13 @@ class PcrOperations(Gtk.Grid):
         self.pcr_selection = []
 
     def _update_extend_btn(self, *extra):  # pylint: disable=unused-argument
-        self._extend_btn.set_sensitive(
-            bool(self.pcr_selection) and bool(self._data_txt_buffer.props.text)
+        is_pcr_selected = bool(self.pcr_selection)
+        is_data_txt_buffer_not_empty = bool(
+            self._data_txt_buffer.get_text(
+                self._data_txt_buffer.get_start_iter(), self._data_txt_buffer.get_end_iter(), True
+            )
         )
+        self._extend_btn.set_sensitive(is_pcr_selected and is_data_txt_buffer_not_empty)
 
     def set_pcr_selection(self, selection):  # TODO callback in the other direction?
         """Set which PCRs are selected. All operations will be performed on these PCRs."""

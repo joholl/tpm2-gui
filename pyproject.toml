@@ -5,9 +5,16 @@ line-length = 100
 include_trailing_comma=true
 multi_line_output=3
 
-[tool.pylint."MESSAGES CONTROL"]
-# TODO remove import error
-disable = [
-    "import-error",
-    "fixme",
-]
+[tool.pylint]
+    [tool.pylint.message_control]
+    max-line-length = 120
+    # TODO fix import and module issues
+    disable = [
+        "fixme",
+        "import-error",
+        "no-name-in-module",
+        "duplicate-code",
+    ]
+    [tool.pylint.design]
+    max-attributes = 15
+    max-statements = 100

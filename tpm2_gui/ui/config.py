@@ -2,6 +2,8 @@
 # Copyright (c) 2020 Johannes Holland
 # All rights reserved.
 
+"""Widgets to configure the TPM interface."""
+
 from pathlib import Path
 
 import gi  # isort:skip
@@ -62,7 +64,7 @@ class ConfigList(Gtk.TreeView):
 class Config(Gtk.Grid):
     """A widget to view and modify the configuration of the FAPI."""
 
-    def __init__(self, tpm):
+    def __init__(self, tpm, on_state_change=None):
         super().__init__(column_spacing=10, row_spacing=10)
         self._tpm = tpm
 
@@ -77,6 +79,7 @@ class Config(Gtk.Grid):
         config_path_txt.set_editable(False)
         self._config_path_txt_buffer.set_text(str(self._tpm.config_path))
         self.attach(config_path_txt, 1, row, 1, 1)
+        # TODO reload butten (left next to open)
         self._config_path_btn = Gtk.Button(label="Open")
         self._config_path_btn.connect("clicked", self._on_config_path_btn_clicked)
         self.attach(self._config_path_btn, 2, row, 1, 1)
@@ -87,7 +90,7 @@ class Config(Gtk.Grid):
         row += 1
 
         self._sim_chkbtn = Gtk.CheckButton()
-        self._sim_chkbtn.set_label("Use Simulator")  # TODO + pulldown menu: which mssim vs swtpm
+        self._sim_chkbtn.set_label("Start Simulator")  # TODO + pulldown menu: which mssim vs swtpm
         self._sim_chkbtn.set_active(True)
         self.attach(self._sim_chkbtn, 0, row, 3, 1)
         row += 1
@@ -124,19 +127,37 @@ class Config(Gtk.Grid):
         row += 1
 
         self._add_dummy_obj_btn = Gtk.Button(label="Add Dummy Objects")
+        self._add_dummy_obj_btn.connect("clicked", self._on_add_dummy_obj_btn_clicked)
         self.attach(self._add_dummy_obj_btn, 1, row, 1, 1)  # TODO
         self._provision_btn = Gtk.Button(label="Provision TPM & Keystore")
+        self._provision_btn.connect("clicked", self._on_provision_btn_clicked)
         self.attach(self._provision_btn, 2, row, 1, 1)  # TODO
         row += 1
 
+        if on_state_change:
+            self._on_state_change = on_state_change
+        else:
+            self._on_state_change = []
+
         self.update()
+
+    def add_on_state_change(self, callback):
+        """
+        Add callback function which will be notified if the TPM state is changed
+        by this widget."""
+        self._on_state_change.append(callback)
 
     def _on_config_path_btn_clicked(self, button):  # pylint: disable=unused-argument
         dialog = Gtk.FileChooserDialog(
             "Open",
             None,
             Gtk.FileChooserAction.OPEN,
-            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK,),
+            (
+                Gtk.STOCK_CANCEL,
+                Gtk.ResponseType.CANCEL,
+                Gtk.STOCK_OPEN,
+                Gtk.ResponseType.OK,
+            ),
         )
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
@@ -144,7 +165,15 @@ class Config(Gtk.Grid):
             # TODO catch error and pop error message if file is not valid json/fapi config
         dialog.destroy()
 
-        self.update()
+        self._trigger_update()
+
+    def _on_provision_btn_clicked(self, button):  # pylint: disable=unused-argument
+        self._tpm.provision()
+        self._trigger_update()
+
+    def _on_add_dummy_obj_btn_clicked(self, button):  # pylint: disable=unused-argument
+        self._tpm.dummy_populate()
+        self._trigger_update()
 
     def _on_config_changed(self, *args):  # pylint: disable=unused-argument
         """Called whenever the config, the path to the config or the config overlay changes."""
@@ -152,14 +181,22 @@ class Config(Gtk.Grid):
         use_tmp_keystore = self._tmp_keystore_chkbtn.get_active()
         self._tpm.reload(use_simulator=use_simulator, use_tmp_keystore=use_tmp_keystore)
 
+        self._trigger_update()
+
+    def _trigger_update(self):
+        """Called when the widget alters the FAPI state. Updates itself and notifies listeners"""
         self.update()
 
+        for callback in self._on_state_change:
+            callback()
+
     def update(self):
+        """Update this widget. Not to be directly called internally."""
         self.config_list.update()
 
         self._keystore_provisioned_value_lbl.set_text(str(self._tpm.is_keystore_provisioned))
         self._tpm_provisioned_value_lbl.set_text(str(self._tpm.is_tpm_provisioned))
         self._consistent_value_lbl.set_text(str(self._tpm.is_consistent))
 
-        self._add_dummy_obj_btn.set_sensitive(False)
+        self._add_dummy_obj_btn.set_sensitive(self._tpm.is_keystore_provisioned)
         self._provision_btn.set_sensitive(not self._tpm.is_keystore_provisioned)

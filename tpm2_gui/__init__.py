@@ -3,21 +3,23 @@
 # All rights reserved.
 
 """Graphical user interface to the TPM2 software stack (TSS) Feature API (FAPI) layer."""
+
 import sys
 
 import gi  # isort:skip
 
+gi.require_version("Gdk", "3.0")  # pylint: disable=wrong-import-position
 gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
 
 # isort:imports-thirdparty
-from gi.repository import Gtk
-
-# isort:imports-firstparty
+from gi.repository import Gdk, Gtk
 from tpm.tpm import TPM
 from ui.config import Config
 from ui.objects import ObjectDetails, Objects
 from ui.pcrs import PcrOperations, Pcrs
 from ui.widgets import ChangeLabel
+
+# isort:imports-firstparty
 
 
 class TPMObjectOperations(Gtk.Grid):
@@ -67,12 +69,17 @@ class TPMObjectOperations(Gtk.Grid):
         cmb_selected_idx = self._operation_cmb.get_model()[cmb_tree_iter][:2][0]
         operation_func = self._operations[cmb_selected_idx]
 
-        in_str = self._input_txt_buffer.props.text
+        in_str = self._input_txt_buffer.get_text(
+            self._input_txt_buffer.get_start_iter(), self._input_txt_buffer.get_end_iter(), True
+        )
         out_str = operation_func(self._path, in_str)
         self._output_txt_buffer.set_text(out_str)
 
     def set_tpm_path(self, path):
-        """Set the TPM object path. The operations made accessible will be operated on this TPM object."""
+        """
+        Set the TPM object path.
+        The operations made accessible will be operated on this TPM object.
+        """
         self._path = path
         self.update()
 
@@ -85,10 +92,10 @@ class MyWindow(Gtk.Window):
     """TPM GUI window."""
 
     def __init__(self, app, tpm):
+        self._tpm = tpm
         Gtk.Window.__init__(self, title="Library", application=app)
-        self.set_default_size(1500, 1000)
+        # self.set_default_size(1500, 1000)  # TODO
         self.set_border_width(10)
-        self.set_wmclass("tpm2-gui", "tpm2-gui")
         self.set_title("tpm2-gui")
         self.set_icon_from_file("resources/tpm.svg")
 
@@ -123,30 +130,31 @@ class MyWindow(Gtk.Window):
         self._notebook = Gtk.Notebook()
 
         # page 1: tcti, config
-        tpm_config = Config(tpm)
-        self._notebook.append_page(tpm_config, Gtk.Label(label="Config"))
+        self._tpm_config = Config(self._tpm)
+        self._notebook.append_page(self._tpm_config, Gtk.Label(label="Config"))
 
         # page 2: tpm objects
         self._grid2 = Gtk.Grid(column_spacing=10, row_spacing=10)
-        self._tpm_objects = Objects(tpm)
+        self._tpm_objects = Objects(self._tpm)
         self._grid2.attach(self._tpm_objects, 0, 0, 1, 1)
         # refresh_btn = Gtk.Button(label="Refresh") # TODO
         # self._grid2.attach(refresh_btn, 0, 1, 1, 1)
-        self._tpm_details = ObjectDetails(tpm)
+        self._tpm_details = ObjectDetails(self._tpm)
         self._grid2.attach(self._tpm_details, 1, 0, 1, 1)
-        tpm_operations = TPMObjectOperations(tpm)
+        tpm_operations = TPMObjectOperations(self._tpm)
         self._grid2.attach(tpm_operations, 0, 1, 2, 1)
-        self._notebook.append_page(self._grid2, Gtk.Label(label="Paths"))
 
         # page 3: pcrs
         self._grid3 = Gtk.Grid(column_spacing=10, row_spacing=10)
-        _tpmpcrs = Pcrs(tpm)
+        _tpmpcrs = Pcrs(self._tpm)
         self._grid3.attach(_tpmpcrs, 0, 0, 1, 1)
-        _tpmpcr_operations = PcrOperations(tpm, _tpmpcrs.update)
+        _tpmpcr_operations = PcrOperations(self._tpm, _tpmpcrs.update)
         self._grid3.attach(_tpmpcr_operations, 1, 0, 1, 1)
         self._notebook.append_page(self._grid3, Gtk.Label(label="PCRs"))
 
         # register callbacks
+        self._tpm_config.add_on_state_change(self.update)
+
         _tpmpcrs.on_selection_fcns.append(self._set_pcr_selection)
         _tpmpcrs.on_selection_fcns.append(_tpmpcr_operations.set_pcr_selection)
 
@@ -158,6 +166,8 @@ class MyWindow(Gtk.Window):
         self._grid.attach(self._notebook, 0, 2, 2, 1)
         self.add(self._grid)
 
+        self.update()
+
     def _set_tpm_path(self, path):
         self._path_txt.set_text(path)
 
@@ -165,10 +175,24 @@ class MyWindow(Gtk.Window):
         self._pcr_txt.set_text(str(selection))
 
     def update(self):
-        """Update the all widget states."""
-        self._tpm_objects.update()
-        self._tpm_details.update()
+        """Update all widget states."""
+        self._tpm_config.update()
 
+        if self._tpm.is_keystore_provisioned:  # TODO and TPM provisioned? and consistent?
+            if self._notebook.page_num(self._grid2) == -1:
+                self._notebook.append_page(self._grid2, Gtk.Label(label="Paths"))
+                self._notebook.show_all()
+            self._tpm_objects.update()
+
+            if self._notebook.page_num(self._grid3) == -1:
+                self._notebook.append_page(self._grid3, Gtk.Label(label="PCRs"))
+                self._notebook.show_all()
+            self._tpm_details.update()
+        else:
+            if self._notebook.page_num(self._grid2) > -1:
+                self._notebook.remove_page(self._notebook.page_num(self._grid2))
+            if self._notebook.page_num(self._grid3) > -1:
+                self._notebook.remove_page(self._notebook.page_num(self._grid3))
 
 class MyApplication(Gtk.Application):
     """TPM GUI application."""
@@ -177,11 +201,12 @@ class MyApplication(Gtk.Application):
         super().__init__()
         self._tpm = tpm
 
-    def do_activate(self):
+    def do_activate(self):  # pylint: disable=arguments-differ
         win = MyWindow(self, self._tpm)
+        win.set_position(Gtk.WindowPosition.CENTER)
         win.show_all()
 
-    def do_startup(self):
+    def do_startup(self):  # pylint: disable=arguments-differ
         Gtk.Application.do_startup(self)
 
 

@@ -2,6 +2,8 @@
 # Copyright (c) 2020 Johannes Holland
 # All rights reserved.
 
+"""Utility widgets."""
+
 import gi  # isort:skip
 
 gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
@@ -39,7 +41,9 @@ class ChangeLabel:
     def _on_button_clicked(self, button):  # pylint: disable=unused-argument
         if self._textview.get_editable():
             # Safe text
-            text = self._textview_buffer.props.text
+            text = self._textview_buffer.get_text(
+                self._textview_buffer.get_start_iter(), self._textview_buffer.get_end_iter(), True
+            )
             self._set_text(self._get_path(), text)
             self._textview.set_editable(False)
 

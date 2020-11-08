@@ -23,80 +23,55 @@ class ObjectDetails(Gtk.Grid):
         self._path = None
         self._tpm_object = None
 
+        row = 0
+
         path_lbl = Gtk.Label(label="Path", xalign=0)
-        self.attach(path_lbl, 0, 0, 1, 1)
+        self.attach(path_lbl, 0, row, 1, 1)
         self._path_txt = Gtk.Entry()
         self._path_txt.set_hexpand(True)
         self._path_txt.set_editable(False)
-        self.attach(self._path_txt, 1, 0, 1, 1)
+        self.attach(self._path_txt, 1, row, 1, 1)
+        row += 1
 
-        self._description_clbl = ValueEditView(
-            "Description",
-            self._tpm_object,
-            "description",
-        )
-        self.attach(self._description_clbl.label, 0, 1, 1, 1)
-        self.attach(self._description_clbl.textview, 1, 1, 1, 1)
-        self.attach(self._description_clbl.button, 2, 1, 1, 1)
+        self._value_views = [
+            ValueEditView(
+                "Description",
+                self._tpm_object,
+                "description",
+            ),
+            ValueEditView(
+                "Application Data",
+                self._tpm_object,
+                "appdata",
+            ),
+            ValueView(
+                "Publik Key",
+                self._tpm_object,
+                "public",
+            ),
+            ValueView(
+                "Private Key",
+                self._tpm_object,
+                "private",
+            ),
+            ValueView(
+                "Policy",
+                self._tpm_object,
+                "policy",
+            ),
+            ValueEditView(
+                "Certificate",
+                self._tpm_object,
+                "certificate",
+            ),
+        ]
 
-        self._appdata_clbl = ValueEditView(
-            "Application Data",
-            self._tpm_object,
-            "appdata",
-        )
-        self.attach(self._appdata_clbl.label, 0, 2, 1, 1)
-        self.attach(self._appdata_clbl.textview, 1, 2, 1, 1)
-        self.attach(self._appdata_clbl.button, 2, 2, 1, 1)
-
-        self._public_lbl = Gtk.Label(label="Public", xalign=0)
-        self.attach(self._public_lbl, 0, 3, 1, 1)
-        self._public_txt_buffer = Gtk.TextBuffer()
-        self._public_txt = Gtk.TextView(buffer=self._public_txt_buffer)
-        self._public_txt.set_hexpand(True)
-        self._public_txt.set_monospace(True)
-        self._public_txt.set_editable(False)
-        self.attach(self._public_txt, 1, 3, 1, 1)
-
-        self._private_lbl = Gtk.Label(label="Private", xalign=0)
-        self.attach(self._private_lbl, 0, 4, 1, 1)
-        self._private_txt_buffer = Gtk.TextBuffer()
-        self._private_txt = Gtk.TextView(buffer=self._private_txt_buffer)
-        self._private_txt.set_hexpand(True)
-        self._private_txt.set_monospace(True)
-        self._private_txt.set_editable(False)
-        self.attach(self._private_txt, 1, 4, 1, 1)
-
-        # TODO json syntax highlighting, e.g. PyGTKCodeBuffer?
-        self._policy_lbl = Gtk.Label(label="Policy", xalign=0)
-        self.attach(self._policy_lbl, 0, 5, 1, 1)
-        self._policy_txt_buffer = Gtk.TextBuffer()
-        self._policy_txt = Gtk.TextView(buffer=self._policy_txt_buffer)
-        self._policy_txt.set_hexpand(True)
-        self._policy_txt.set_monospace(True)
-        self._policy_txt.set_editable(False)
-        self._policy_scroll = Gtk.ScrolledWindow()
-        self._policy_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        self._policy_scroll.set_max_content_height(200)
-        self._policy_scroll.set_propagate_natural_height(True)
-        self._policy_scroll.add(self._policy_txt)
-        self.attach(self._policy_scroll, 1, 5, 1, 1)
-
-        self._cert_clbl = ValueEditView(
-            "Certificate",
-            self._tpm_object,
-            "certificate",
-        )
-        self.attach(self._cert_clbl.label, 0, 6, 1, 1)
-        self.attach(self._cert_clbl.textview, 1, 6, 1, 1)
-        self.attach(self._cert_clbl.button, 2, 6, 1, 1)
-
-        self._nv_vview = ValueView(
-            "NV (descr)",
-            self._tpm_object,
-            "description",
-        )
-        self.attach(self._nv_vview.label, 0, 7, 1, 1)
-        self.attach(self._nv_vview.textview, 1, 7, 1, 1)
+        for value_view in self._value_views:
+            self.attach(value_view.label, 0, row, 1, 1)
+            self.attach(value_view.textview, 1, row, 1, 1)
+            if isinstance(value_view, ValueEditView):
+                self.attach(value_view.button, 2, row, 1, 1)
+            row += 1
 
         self.update()
 
@@ -107,63 +82,24 @@ class ObjectDetails(Gtk.Grid):
         """Set the TPM object path. The details of this TPM object are made accessible."""
         self._path = path
         self._tpm_object = self._tpm.fapi_object(self._path)
-        self._description_clbl.set_tpm_object(self._tpm_object)
-        self._appdata_clbl.set_tpm_object(self._tpm_object)
-        self._cert_clbl.set_tpm_object(self._tpm_object)
+        for value_view in self._value_views:
+            value_view.set_tpm_object(self._tpm_object)
 
         self.update()
 
     def reset(self, *args, **kwargs):  # pylint: disable=unused-argument
         """Reset all widget state."""
-        self._description_clbl.reset()
-        self._appdata_clbl.reset()
+        for value_view in self._value_views:
+            value_view.reset()
 
     def update(self):
         """Update the widget state according to the currently selected path."""
         if self._path is not None:
             self._path_txt.set_text(self._path)
 
-            if self._tpm_object.description is None:
-                self._description_clbl.hide()
-            else:
-                self._description_clbl.show()
-                self._description_clbl.update()
-
-            if self._tpm_object.appdata is None:
-                self._appdata_clbl.hide()
-            else:
-                self._appdata_clbl.show()
-                self._appdata_clbl.update()
-
-            if self._tpm_object.certificate is None:
-                self._cert_clbl.hide()
-            else:
-                self._cert_clbl.show()
-                self._cert_clbl.update()
-
-            if self._tpm_object.public is None:
-                self._public_lbl.hide()
-                self._public_txt.hide()
-            else:
-                self._public_lbl.show()
-                self._public_txt.show()
-                self._public_txt_buffer.set_text(self._tpm_object.public)
-
-            if self._tpm_object.private is None:
-                self._private_lbl.hide()
-                self._private_txt.hide()
-            else:
-                self._private_lbl.show()
-                self._private_txt.show()
-                self._private_txt_buffer.set_text(self._tpm_object.private)
-
-            if self._tpm_object.policy is None:
-                self._policy_lbl.hide()
-                self._policy_scroll.hide()
-            else:
-                self._policy_lbl.show()
-                self._policy_scroll.show()
-                self._policy_txt_buffer.set_text(self._tpm_object.policy)
+            for value_view in self._value_views:
+                value_view.automatic_visibility()
+                value_view.update()
 
 
 class Objects(Gtk.TreeView):

@@ -60,6 +60,12 @@ class ValueView:
         self.label.show()
         self.textview.show()
 
+    def automatic_visibility(self):
+        if self._obj is None or getattr(self._obj, self._attr) is None:
+            self.hide()
+        else:
+            self.show()
+
     def reset(self):  # pylint: disable=unused-argument
         """Reset all widget state."""
         self._textview.set_editable(False)

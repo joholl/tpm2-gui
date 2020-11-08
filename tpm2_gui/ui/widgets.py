@@ -71,6 +71,18 @@ class ChangeLabel:
         """Get the Button widget."""
         return self._button
 
+    def hide(self):
+        """Hide all associated widgets."""
+        self.label.hide()
+        self.textview.hide()
+        self.button.hide()
+
+    def show(self):
+        """Show all associated widgets."""
+        self.label.show()
+        self.textview.show()
+        self.button.show()
+
     def reset(self):  # pylint: disable=unused-argument
         """Reset all widget state."""
         self._textview.set_editable(False)

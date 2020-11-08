@@ -99,6 +99,7 @@ class ObjectDetails(Gtk.Grid):
         self._description_clbl.set_tpm_object(self._tpm_object)
         self._appdata_clbl.set_tpm_object(self._tpm_object)
         self._cert_clbl.set_tpm_object(self._tpm_object)
+
         self.update()
 
     def reset(self, *args, **kwargs):  # pylint: disable=unused-argument
@@ -111,9 +112,23 @@ class ObjectDetails(Gtk.Grid):
         if self._path is not None:
             self._path_txt.set_text(self._path)
 
-            self._description_clbl.update()
-            self._appdata_clbl.update()
-            self._cert_clbl.update()
+            if self._tpm_object.description is None:
+                self._description_clbl.hide()
+            else:
+                self._description_clbl.show()
+                self._description_clbl.update()
+
+            if self._tpm_object.appdata is None:
+                self._appdata_clbl.hide()
+            else:
+                self._appdata_clbl.show()
+                self._appdata_clbl.update()
+
+            if self._tpm_object.certificate is None:
+                self._cert_clbl.hide()
+            else:
+                self._cert_clbl.show()
+                self._cert_clbl.update()
 
             # public, private, _ = self._tpm.get_public_private_policy(self._path)
             # policy = self._tpm.get_policy(self._path)

@@ -11,7 +11,7 @@ gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
 # isort:imports-thirdparty
 from gi.repository import Gtk
 
-from .widgets import ChangeLabel
+from .widgets import ValueEditView, ValueView
 
 
 class ObjectDetails(Gtk.Grid):
@@ -30,7 +30,7 @@ class ObjectDetails(Gtk.Grid):
         self._path_txt.set_editable(False)
         self.attach(self._path_txt, 1, 0, 1, 1)
 
-        self._description_clbl = ChangeLabel(
+        self._description_clbl = ValueEditView(
             "Description",
             self._tpm_object,
             "description",
@@ -39,7 +39,7 @@ class ObjectDetails(Gtk.Grid):
         self.attach(self._description_clbl.textview, 1, 1, 1, 1)
         self.attach(self._description_clbl.button, 2, 1, 1, 1)
 
-        self._appdata_clbl = ChangeLabel(
+        self._appdata_clbl = ValueEditView(
             "Application Data",
             self._tpm_object,
             "appdata",
@@ -81,7 +81,7 @@ class ObjectDetails(Gtk.Grid):
         self._policy_scroll.add(self._policy_txt)
         self.attach(self._policy_scroll, 1, 5, 1, 1)
 
-        self._cert_clbl = ChangeLabel(
+        self._cert_clbl = ValueEditView(
             "Certificate",
             self._tpm_object,
             "certificate",
@@ -89,6 +89,14 @@ class ObjectDetails(Gtk.Grid):
         self.attach(self._cert_clbl.label, 0, 6, 1, 1)
         self.attach(self._cert_clbl.textview, 1, 6, 1, 1)
         self.attach(self._cert_clbl.button, 2, 6, 1, 1)
+
+        self._nv_vview = ValueView(
+            "NV (descr)",
+            self._tpm_object,
+            "description",
+        )
+        self.attach(self._nv_vview.label, 0, 7, 1, 1)
+        self.attach(self._nv_vview.textview, 1, 7, 1, 1)
 
         self.update()
 

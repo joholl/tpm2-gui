@@ -12,7 +12,7 @@ gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
 from gi.repository import Gtk
 
 
-class ChangeLabel:
+class ValueView:
     """A text field consisting of a label, a text box and a button for editing and saving."""
 
     def __init__(self, label, obj, attr):
@@ -33,11 +33,6 @@ class ChangeLabel:
         self._textview_scroll.set_propagate_natural_height(True)
         self._textview_scroll.add(self._textview)
 
-        self._textview.connect("focus_out_event", self._on_textview_lost_focus)
-
-        self._button = Gtk.Button(label="Edit")
-        self._button.connect("clicked", self._on_button_clicked)
-
         self.update()
 
     def set_tpm_object(self, obj):
@@ -45,8 +40,50 @@ class ChangeLabel:
         self._obj = obj
         self.update()
 
-    def _on_textview_lost_focus(self, textview, event_focus):
-        pass
+    @property
+    def label(self):
+        """Get the Label widget."""
+        return self._label
+
+    @property
+    def textview(self):
+        """Get the TextView widget."""
+        return self._textview_scroll
+
+    def hide(self):
+        """Hide all associated widgets."""
+        self.label.hide()
+        self.textview.hide()
+
+    def show(self):
+        """Show all associated widgets."""
+        self.label.show()
+        self.textview.show()
+
+    def reset(self):  # pylint: disable=unused-argument
+        """Reset all widget state."""
+        self._textview.set_editable(False)
+        self.update()
+
+    def update(self):
+        """Update the widget state according to the currently selected path."""
+        if self._obj is not None:
+            text = getattr(self._obj, self._attr)
+
+            if text is not None:
+                self._textview_buffer.set_text(text)
+
+
+class ValueEditView(ValueView):
+    """A text field consisting of a label, a text box and a button for editing and saving."""
+
+    def __init__(self, label, obj, attr):
+        super().__init__(label, obj, attr)
+
+        self._button = Gtk.Button(label="Edit")
+        self._button.connect("clicked", self._on_button_clicked)
+
+        self.update()
 
     def _on_button_clicked(self, button):  # pylint: disable=unused-argument
         if self._textview.get_editable():
@@ -64,45 +101,32 @@ class ChangeLabel:
         self.update()
 
     @property
-    def label(self):
-        """Get the Label widget."""
-        return self._label
-
-    @property
-    def textview(self):
-        """Get the TextView widget."""
-        return self._textview_scroll
-
-    @property
     def button(self):
         """Get the Button widget."""
         return self._button
 
     def hide(self):
         """Hide all associated widgets."""
-        self.label.hide()
-        self.textview.hide()
+        super().hide()
         self.button.hide()
 
     def show(self):
         """Show all associated widgets."""
-        self.label.show()
-        self.textview.show()
+        super().show()
         self.button.show()
 
     def reset(self):  # pylint: disable=unused-argument
         """Reset all widget state."""
-        self._textview.set_editable(False)
+        super().reset()
         self.update()
 
     def update(self):
         """Update the widget state according to the currently selected path."""
+        super().update()
+
         if self._obj is not None:
             text = getattr(self._obj, self._attr)
             self._button.set_sensitive(text is not None)
-
-            if text is not None:
-                self._textview_buffer.set_text(text)
 
             if self._textview.get_editable():
                 self._button.set_label("Safe")

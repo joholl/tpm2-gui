@@ -15,7 +15,10 @@ from gi.repository import Gtk
 class ChangeLabel:
     """A text field consisting of a label, a text box and a button for editing and saving."""
 
-    def __init__(self, label, get_text, set_text, get_path):
+    def __init__(self, label, obj, attr):
+        self._obj = obj
+        self._attr = attr
+
         self._label = Gtk.Label(label=label, xalign=0)
 
         self._textview_buffer = Gtk.TextBuffer()
@@ -28,11 +31,11 @@ class ChangeLabel:
         self._button = Gtk.Button(label="Edit")
         self._button.connect("clicked", self._on_button_clicked)
 
-        # Functions
-        self._get_path = get_path
-        self._get_text = get_text
-        self._set_text = set_text
+        self.update()
 
+    def set_tpm_object(self, obj):
+        """Set TPM object whose whose attribute is made accessible."""
+        self._obj = obj
         self.update()
 
     def _on_textview_lost_focus(self, textview, event_focus):
@@ -44,7 +47,7 @@ class ChangeLabel:
             text = self._textview_buffer.get_text(
                 self._textview_buffer.get_start_iter(), self._textview_buffer.get_end_iter(), True
             )
-            self._set_text(self._get_path(), text)
+            setattr(self._obj, self._attr, text)
             self._textview.set_editable(False)
 
         else:
@@ -75,16 +78,14 @@ class ChangeLabel:
 
     def update(self):
         """Update the widget state according to the currently selected path."""
-        text = self._get_text(self._get_path())
+        if self._obj is not None:
+            text = getattr(self._obj, self._attr)
+            self._button.set_sensitive(text is not None)
 
-        if text is None:
-            self._button.set_sensitive(False)
-            text = "-"
-        else:
-            self._button.set_sensitive(True)
+            if text is not None:
+                self._textview_buffer.set_text(text)
 
-        self._textview_buffer.set_text(text)
-        if self._textview.get_editable():
-            self._button.set_label("Safe")
-        else:
-            self._button.set_label("Edit")
+            if self._textview.get_editable():
+                self._button.set_label("Safe")
+            else:
+                self._button.set_label("Edit")

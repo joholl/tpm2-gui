@@ -21,6 +21,7 @@ class ObjectDetails(Gtk.Grid):
         super().__init__(column_spacing=10, row_spacing=10)
         self._tpm = tpm
         self._path = None
+        self._tpm_object = None
 
         path_lbl = Gtk.Label(label="Path", xalign=0)
         self.attach(path_lbl, 0, 0, 1, 1)
@@ -31,9 +32,8 @@ class ObjectDetails(Gtk.Grid):
 
         self._description_clbl = ChangeLabel(
             "Description",
-            self._tpm.get_description,
-            self._tpm.set_description,
-            self._get_tpm_path,
+            self._tpm_object,
+            "description",
         )
         self.attach(self._description_clbl.label, 0, 1, 1, 1)
         self.attach(self._description_clbl.textview, 1, 1, 1, 1)
@@ -41,51 +41,47 @@ class ObjectDetails(Gtk.Grid):
 
         self._appdata_clbl = ChangeLabel(
             "Application Data",
-            self._tpm.get_appdata,
-            self._tpm.set_appdata,
-            self._get_tpm_path,
+            self._tpm_object,
+            "appdata",
         )
         self.attach(self._appdata_clbl.label, 0, 2, 1, 1)
         self.attach(self._appdata_clbl.textview, 1, 2, 1, 1)
         self.attach(self._appdata_clbl.button, 2, 2, 1, 1)
 
-        public_lbl = Gtk.Label(label="Public", xalign=0)
-        self.attach(public_lbl, 0, 3, 1, 1)
-        self._public_txt_buffer = Gtk.TextBuffer()
-        public_txt = Gtk.TextView(buffer=self._public_txt_buffer)
-        public_txt.set_hexpand(True)
-        public_txt.set_monospace(True)
-        public_txt.set_editable(False)
-        self.attach(public_txt, 1, 3, 1, 1)
+        # public_lbl = Gtk.Label(label="Public", xalign=0)
+        # self.attach(public_lbl, 0, 3, 1, 1)
+        # self._public_txt_buffer = Gtk.TextBuffer()
+        # public_txt = Gtk.TextView(buffer=self._public_txt_buffer)
+        # public_txt.set_hexpand(True)
+        # public_txt.set_monospace(True)
+        # public_txt.set_editable(False)
+        # self.attach(public_txt, 1, 3, 1, 1)
 
-        # alternative: NVRead, Unseal
+        # private_lbl = Gtk.Label(label="Private", xalign=0)
+        # self.attach(private_lbl, 0, 4, 1, 1)
+        # self._private_txt_buffer = Gtk.TextBuffer()
+        # private_txt = Gtk.TextView(buffer=self._private_txt_buffer)
+        # private_txt.set_hexpand(True)
+        # private_txt.set_monospace(True)
+        # private_txt.set_editable(False)
+        # self.attach(private_txt, 1, 4, 1, 1)
 
-        private_lbl = Gtk.Label(label="Private", xalign=0)
-        self.attach(private_lbl, 0, 4, 1, 1)
-        self._private_txt_buffer = Gtk.TextBuffer()
-        private_txt = Gtk.TextView(buffer=self._private_txt_buffer)
-        private_txt.set_hexpand(True)
-        private_txt.set_monospace(True)
-        private_txt.set_editable(False)
-        self.attach(private_txt, 1, 4, 1, 1)
-
-        policy_lbl = Gtk.Label(label="Policy", xalign=0)
-        self.attach(policy_lbl, 0, 5, 1, 1)
-        self._policy_txt_buffer = Gtk.TextBuffer()
-        policy_txt = Gtk.TextView(buffer=self._policy_txt_buffer)
-        policy_txt.set_hexpand(True)
-        policy_txt.set_monospace(True)
-        policy_txt.set_editable(False)
-        policy_scroll = Gtk.ScrolledWindow()
-        policy_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-        policy_scroll.add(policy_txt)
-        self.attach(policy_scroll, 1, 5, 1, 1)
+        # policy_lbl = Gtk.Label(label="Policy", xalign=0)
+        # self.attach(policy_lbl, 0, 5, 1, 1)
+        # self._policy_txt_buffer = Gtk.TextBuffer()
+        # policy_txt = Gtk.TextView(buffer=self._policy_txt_buffer)
+        # policy_txt.set_hexpand(True)
+        # policy_txt.set_monospace(True)
+        # policy_txt.set_editable(False)
+        # policy_scroll = Gtk.ScrolledWindow()
+        # policy_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        # policy_scroll.add(policy_txt)
+        # self.attach(policy_scroll, 1, 5, 1, 1)
 
         self._cert_clbl = ChangeLabel(
             "Certificate",
-            self._tpm.get_certificate,
-            self._tpm.set_certificate,
-            self._get_tpm_path,
+            self._tpm_object,
+            "certificate",
         )
         self.attach(self._cert_clbl.label, 0, 6, 1, 1)
         self.attach(self._cert_clbl.textview, 1, 6, 1, 1)
@@ -99,6 +95,10 @@ class ObjectDetails(Gtk.Grid):
     def set_tpm_path(self, path):
         """Set the TPM object path. The details of this TPM object are made accessible."""
         self._path = path
+        self._tpm_object = self._tpm.fapi_object(self._path)
+        self._description_clbl.set_tpm_object(self._tpm_object)
+        self._appdata_clbl.set_tpm_object(self._tpm_object)
+        self._cert_clbl.set_tpm_object(self._tpm_object)
         self.update()
 
     def reset(self, *args, **kwargs):  # pylint: disable=unused-argument
@@ -113,17 +113,16 @@ class ObjectDetails(Gtk.Grid):
 
             self._description_clbl.update()
             self._appdata_clbl.update()
-
-            public, private, _ = self._tpm.get_public_private_policy(self._path)
-            policy = self._tpm.get_policy(self._path)
-            public = public if public else "-"
-            private = private if private else "-"
-            policy = policy if policy else "-"
-            self._public_txt_buffer.set_text(public)
-            self._private_txt_buffer.set_text(private)
-            self._policy_txt_buffer.set_text(policy)
-
             self._cert_clbl.update()
+
+            # public, private, _ = self._tpm.get_public_private_policy(self._path)
+            # policy = self._tpm.get_policy(self._path)
+            # public = public if public else "-"
+            # private = private if private else "-"
+            # policy = policy if policy else "-"
+            # self._public_txt_buffer.set_text(public)
+            # self._private_txt_buffer.set_text(private)
+            # self._policy_txt_buffer.set_text(policy)
 
 
 class Objects(Gtk.TreeView):
@@ -136,7 +135,9 @@ class Objects(Gtk.TreeView):
         """
         for key, value in tree_data.items():
             path = f"{path_parent}/{key}"
-            piter_this = self._store.append(piter_parent, [key, self._tpm.fapi_object(path).object_type_info])
+            piter_this = self._store.append(
+                piter_parent, [key, self._tpm.fapi_object(path).object_type_info]
+            )
             self._tree_store_append(value, path_parent=path, piter_parent=piter_this)
 
     def update(self):

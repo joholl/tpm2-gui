@@ -106,6 +106,58 @@ class FAPIObject:
             ObjectType.policy: "Policy",
         }[self.object_type]
 
+    # TODO handle object types and setter exceptions
+    @property
+    def description(self):
+        """Get description from TPM object."""
+        try:
+            with CHAR_PTR_PTR() as description:
+                return self._fapi_ctx.GetDescription(self.path, description)
+        except TPM2Error:  # TODO
+            return None
+
+    @description.setter
+    def description(self, value):
+        """Set description of TPM object."""
+        self._fapi_ctx.SetDescription(self.path, value)
+
+    @property
+    def appdata(self):
+        """Get application data of TPM object."""
+        try:
+            with UINT8_PTR_PTR() as app_data:
+                with SIZE_T_PTR() as app_data_size:
+                    appdata = self._fapi_ctx.GetAppData(self.path, app_data, app_data_size)
+                    return hexdump(appdata)
+        except TPM2Error:  # TODO
+            return None
+
+    @appdata.setter
+    def appdata(self, value):
+        """Set application data of TPM object."""
+        with UINT8_PTR() as app_data:
+            app_data_size = len(value)
+            self._fapi_ctx.SetAppData(self.path, app_data, app_data_size)  # TODO
+
+    @property
+    def certificate(self):
+        """Get certifiacte from TPM object path."""
+        # if path == "/P_ECCP256SHA256":
+        #     with UINT8_PTR_PTR() as certificates:
+        #         with SIZE_T_PTR() as certificatesSize:
+        #             ret = self._fapi_ctx.GetPlatformCertificates(certificates, certificatesSize)
+        #             print(ret)
+        try:
+            with CHAR_PTR_PTR() as x509_cert_data:
+                return self._fapi_ctx.GetCertificate(self.path, x509_cert_data)
+        except TPM2Error:  # TODO
+            return None
+
+    @certificate.setter
+    def certificate(self, value):
+        """Set certificate of TPM object."""
+        self._fapi_ctx.SetCertificate(self.path, value)
+
 
 class TPM:  # pylint: disable=too-many-public-methods
     """Interface for interacting with the TSS Feature API and the Truste Platform Module."""
@@ -370,58 +422,9 @@ VrpSGMIFSu301A==
 
     def fapi_object(self, path):  # pylint: disable=invalid-name
         """Return a FAPIObject from a path."""
-        return FAPIObject(
+        return FAPIObject(  # TODO return error if path is not in list?
             path, fapi_ctx=self._fapi_ctx, user_dir=self._user_dir, system_dir=self._system_dir
         )
-
-    def get_description(self, path):
-        """Get description from TPM object path."""
-        try:
-            with CHAR_PTR_PTR() as description:
-                description = self._fapi_ctx.GetDescription(path, description)
-        except TPM2Error:
-            description = None
-        return description
-
-    def set_description(self, path, description):
-        """Set description via TPM object path."""
-        self._fapi_ctx.SetDescription(path, description)
-
-    def get_appdata(self, path):
-        """Get application data from TPM object path."""
-        try:
-            with UINT8_PTR_PTR() as app_data:
-                with SIZE_T_PTR() as app_data_size:
-                    appdata = self._fapi_ctx.GetAppData(path, app_data, app_data_size)
-                    appdata = hexdump(appdata)
-        except TPM2Error:
-            appdata = None
-        return appdata
-
-    def set_appdata(self, path, data):
-        """Set application data via TPM object path."""
-        with UINT8_PTR() as app_data:
-            # TODO app_data = "This is the App Data"
-            app_data_size = len(data)  # TODO
-            self._fapi_ctx.SetAppData(path, app_data, app_data_size)
-
-    def get_certificate(self, path):
-        """Get certifiacte from TPM object path."""
-        # if path == "/P_ECCP256SHA256":
-        #     with UINT8_PTR_PTR() as certificates:
-        #         with SIZE_T_PTR() as certificatesSize:
-        #             ret = self._fapi_ctx.GetPlatformCertificates(certificates, certificatesSize)
-        #             print(ret)
-        try:
-            with CHAR_PTR_PTR() as x509_cert_data:
-                cert = self._fapi_ctx.GetCertificate(path, x509_cert_data)
-        except TPM2Error:
-            cert = None
-        return cert
-
-    def set_certificate(self, path, cert):
-        """Set certifiacte via TPM object path."""
-        self._fapi_ctx.SetCertificate(path, cert)
 
     def get_pcr(self, index):
         """Get single Platform Configuration Register value from index."""

@@ -48,35 +48,38 @@ class ObjectDetails(Gtk.Grid):
         self.attach(self._appdata_clbl.textview, 1, 2, 1, 1)
         self.attach(self._appdata_clbl.button, 2, 2, 1, 1)
 
-        # public_lbl = Gtk.Label(label="Public", xalign=0)
-        # self.attach(public_lbl, 0, 3, 1, 1)
-        # self._public_txt_buffer = Gtk.TextBuffer()
-        # public_txt = Gtk.TextView(buffer=self._public_txt_buffer)
-        # public_txt.set_hexpand(True)
-        # public_txt.set_monospace(True)
-        # public_txt.set_editable(False)
-        # self.attach(public_txt, 1, 3, 1, 1)
+        self._public_lbl = Gtk.Label(label="Public", xalign=0)
+        self.attach(self._public_lbl, 0, 3, 1, 1)
+        self._public_txt_buffer = Gtk.TextBuffer()
+        self._public_txt = Gtk.TextView(buffer=self._public_txt_buffer)
+        self._public_txt.set_hexpand(True)
+        self._public_txt.set_monospace(True)
+        self._public_txt.set_editable(False)
+        self.attach(self._public_txt, 1, 3, 1, 1)
 
-        # private_lbl = Gtk.Label(label="Private", xalign=0)
-        # self.attach(private_lbl, 0, 4, 1, 1)
-        # self._private_txt_buffer = Gtk.TextBuffer()
-        # private_txt = Gtk.TextView(buffer=self._private_txt_buffer)
-        # private_txt.set_hexpand(True)
-        # private_txt.set_monospace(True)
-        # private_txt.set_editable(False)
-        # self.attach(private_txt, 1, 4, 1, 1)
+        self._private_lbl = Gtk.Label(label="Private", xalign=0)
+        self.attach(self._private_lbl, 0, 4, 1, 1)
+        self._private_txt_buffer = Gtk.TextBuffer()
+        self._private_txt = Gtk.TextView(buffer=self._private_txt_buffer)
+        self._private_txt.set_hexpand(True)
+        self._private_txt.set_monospace(True)
+        self._private_txt.set_editable(False)
+        self.attach(self._private_txt, 1, 4, 1, 1)
 
-        # policy_lbl = Gtk.Label(label="Policy", xalign=0)
-        # self.attach(policy_lbl, 0, 5, 1, 1)
-        # self._policy_txt_buffer = Gtk.TextBuffer()
-        # policy_txt = Gtk.TextView(buffer=self._policy_txt_buffer)
-        # policy_txt.set_hexpand(True)
-        # policy_txt.set_monospace(True)
-        # policy_txt.set_editable(False)
-        # policy_scroll = Gtk.ScrolledWindow()
-        # policy_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-        # policy_scroll.add(policy_txt)
-        # self.attach(policy_scroll, 1, 5, 1, 1)
+        # TODO json syntax highlighting, e.g. PyGTKCodeBuffer?
+        self._policy_lbl = Gtk.Label(label="Policy", xalign=0)
+        self.attach(self._policy_lbl, 0, 5, 1, 1)
+        self._policy_txt_buffer = Gtk.TextBuffer()
+        self._policy_txt = Gtk.TextView(buffer=self._policy_txt_buffer)
+        self._policy_txt.set_hexpand(True)
+        self._policy_txt.set_monospace(True)
+        self._policy_txt.set_editable(False)
+        self._policy_scroll = Gtk.ScrolledWindow()
+        self._policy_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self._policy_scroll.set_max_content_height(200)
+        self._policy_scroll.set_propagate_natural_height(True)
+        self._policy_scroll.add(self._policy_txt)
+        self.attach(self._policy_scroll, 1, 5, 1, 1)
 
         self._cert_clbl = ChangeLabel(
             "Certificate",
@@ -130,14 +133,29 @@ class ObjectDetails(Gtk.Grid):
                 self._cert_clbl.show()
                 self._cert_clbl.update()
 
-            # public, private, _ = self._tpm.get_public_private_policy(self._path)
-            # policy = self._tpm.get_policy(self._path)
-            # public = public if public else "-"
-            # private = private if private else "-"
-            # policy = policy if policy else "-"
-            # self._public_txt_buffer.set_text(public)
-            # self._private_txt_buffer.set_text(private)
-            # self._policy_txt_buffer.set_text(policy)
+            if self._tpm_object.public is None:
+                self._public_lbl.hide()
+                self._public_txt.hide()
+            else:
+                self._public_lbl.show()
+                self._public_txt.show()
+                self._public_txt_buffer.set_text(self._tpm_object.public)
+
+            if self._tpm_object.private is None:
+                self._private_lbl.hide()
+                self._private_txt.hide()
+            else:
+                self._private_lbl.show()
+                self._private_txt.show()
+                self._private_txt_buffer.set_text(self._tpm_object.private)
+
+            if self._tpm_object.policy is None:
+                self._policy_lbl.hide()
+                self._policy_scroll.hide()
+            else:
+                self._policy_lbl.show()
+                self._policy_scroll.show()
+                self._policy_txt_buffer.set_text(self._tpm_object.policy)
 
 
 class Objects(Gtk.TreeView):

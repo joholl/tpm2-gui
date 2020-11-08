@@ -24,8 +24,15 @@ class ChangeLabel:
         self._textview_buffer = Gtk.TextBuffer()
         self._textview = Gtk.TextView(buffer=self._textview_buffer)
         self._textview.set_hexpand(True)
-        # self.textview.set_monospace(True)
+        self._textview.set_monospace(True)
         self._textview.set_editable(False)
+
+        self._textview_scroll = Gtk.ScrolledWindow()
+        self._textview_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self._textview_scroll.set_max_content_height(200)
+        self._textview_scroll.set_propagate_natural_height(True)
+        self._textview_scroll.add(self._textview)
+
         self._textview.connect("focus_out_event", self._on_textview_lost_focus)
 
         self._button = Gtk.Button(label="Edit")
@@ -64,7 +71,7 @@ class ChangeLabel:
     @property
     def textview(self):
         """Get the TextView widget."""
-        return self._textview
+        return self._textview_scroll
 
     @property
     def button(self):

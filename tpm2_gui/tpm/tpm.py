@@ -163,6 +163,60 @@ class FAPIObject:
         """Set certificate of TPM object."""
         self._fapi_ctx.SetCertificate(self.path, value)
 
+    @property
+    def public_private_policy(self):
+        """Get public and private portion as well as policy from TPM object path."""
+        with UINT8_PTR_PTR() as tpm2b_public:
+            with SIZE_T_PTR() as tpm2b_public_size:
+                with UINT8_PTR_PTR() as tpm2b_private:
+                    with SIZE_T_PTR() as tpm2b_private_size:
+                        with CHAR_PTR_PTR() as policy:
+                            try:
+                                public, private, policy = self._fapi_ctx.GetTpmBlobs(
+                                    self.path,
+                                    tpm2b_public,
+                                    tpm2b_public_size,
+                                    tpm2b_private,
+                                    tpm2b_private_size,
+                                    policy,
+                                )
+                            except TPM2Error as tpm_error:
+                                if tpm_error.rc in (
+                                    0x6001D,
+                                    0x60020,
+                                    0x60024,
+                                ):  # TODO bad path, Could not open (2x)
+                                    return (None, None, None)
+                                raise tpm_error
+
+        return (public, private, policy)
+
+    @property
+    def public(self):
+        """Get public key portion from TPM object."""
+        public, _, _ = self.public_private_policy
+        if public is None:
+            return None
+        return hexdump(public)  # TODO PEM?
+
+    @property
+    def private(self):
+        """Get private key portion from TPM object."""
+        _, private, _ = self.public_private_policy
+        if private is None:
+            return None
+        return hexdump(private)  # TODO PEM?
+
+    @property
+    def policy(self):
+        """Get policy of from TPM object."""
+        _, _, policy = self.public_private_policy
+        if policy is None:
+            return None
+        if not policy:
+            return ""
+        return json.dumps(policy, indent=3)
+
 
 class TPM:  # pylint: disable=too-many-public-methods
     """Interface for interacting with the TSS Feature API and the Truste Platform Module."""
@@ -447,35 +501,6 @@ VrpSGMIFSu301A==
             pcr_log = None
 
         return (pcr_value, pcr_log)
-
-    def get_public_private_policy(self, path):
-        """Get public and private portion as well as policy from TPM object path."""
-        try:
-            with UINT8_PTR_PTR() as tpm2b_public:
-                with SIZE_T_PTR() as tpm2b_public_size:
-                    with UINT8_PTR_PTR() as tpm2b_private:
-                        with SIZE_T_PTR() as tpm2b_private_size:
-                            with CHAR_PTR_PTR() as policy:
-                                public, private, policy = self._fapi_ctx.GetTpmBlobs(
-                                    path,
-                                    tpm2b_public,
-                                    tpm2b_public_size,
-                                    tpm2b_private,
-                                    tpm2b_private_size,
-                                    policy,
-                                )
-                                public = hexdump(public)
-                                private = hexdump(private)
-                                if policy is not None:
-                                    policy = json.dumps(policy, indent=3)
-                                else:
-                                    policy = None
-        except TPM2Error:
-            public = None
-            private = None
-            policy = None
-
-        return (public, private, policy)
 
     def get_policy(self, path):
         """Get policy from TPM object path."""

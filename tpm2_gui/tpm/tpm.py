@@ -190,25 +190,33 @@ class TPM:  # pylint: disable=too-many-public-methods
         # AwEHoUQDQgAExgnxXp0Kj+Zuav7zbzX0COwCS/qZURF8qRef+cnkbNKCYBsZnfI3
         # Cvm6l0F4bVE8QibJg+QntesC8hLc17ASJA==
         # -----END EC PRIVATE KEY----"""
-        pubkey = """-----BEGIN PUBLIC KEY-----
+        pubkey = r"""-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUymzBzI3LcxRpqJkiP0Ks7qp1UZH
 93mYpmfUJBjK6anQawTyy8k87MteUdP5IPy47gzsO7sFcbWCoVZ8LvoQUw==
 -----END PUBLIC KEY-----"""
         self._fapi_ctx.Import("/ext/myExtPubKey", pubkey)
 
-        policy = r"""{
-    "description":"Description pol_signed",
-    "policy":[
-        {
-            "type": "POLICYSIGNED",
-            "publicKeyHint": "Test key hint",
-            -----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n
-            "keyPEMhashAlg": "SHA1"
+        public_key_pem = r"""-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoGL6IrCSAznmIIzBessI
+mW7tPOUy78uWTIaub32KnYHn78KXprrZ3ykp6WDrOQeMjv4AA+14mJbg77apVYXy
+EnkFdOMa1hszSJnp6cJvx7ILngLvFUxzbVki/ehvgS3nRk67Njal+nMTe8hpe3UK
+QeV/Ij+F0r6Yz91W+4LPmncAiUesRZLetI2BZsKwHYRMznmpIYpoua1NtS8QpEXR
+MmsUue19eS/XRAPmmCfnb5BX2Tn06iCpk6wO+RfMo9etcX5cLSAuIYEQYCvV2/0X
+TfEw607vttBN0Y54LrVOKno1vRXd5sxyRlfB0WL42F4VG5TfcJo5u1Xq7k9m9K57
+8wIDAQAB
+-----END PUBLIC KEY-----"""
+        policy = {
+            "description":"Description pol_signed",
+            "policy":[
+                {
+                    "type": "POLICYSIGNED",
+                    "publicKeyHint": "Test key hint",
+                    "keyPEM": public_key_pem,
+                    "keyPEMhashAlg": "SHA1"
+                }
+            ]
         }
-    ]
-}"""
-
-        self._fapi_ctx.Import("/policy/myPolicy", policy)  # policy
+        self._fapi_ctx.Import("/policy/myPolicy", str(policy))  # policy
 
         # TODO create some objects for debugging
         self._fapi_ctx.CreateKey("HS/SRK/mySigKey", "noDa, sign", "", "")  # signature

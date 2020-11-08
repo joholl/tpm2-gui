@@ -7,6 +7,7 @@
 import contextlib
 import json
 import tempfile
+from enum import Enum
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -35,6 +36,75 @@ def hexdump(byte_array, line_len=16):
         printable = "".join(["%s" % ((b <= 127 and char_map[b]) or ".") for b in line_text])
         lines.append("%04x  %-*s  |%s|\n" % (offset, line_len * 3, line_hex, printable))
     return "".join(lines)
+
+
+class ObjectType(Enum):
+    """TPM FAPI object types."""
+
+    none = 0
+    key = 1
+    nv = 2
+    ext_pub_key = 3
+    hierarchy = 4
+    duplicate = 5
+    policy = 6  # not a real FAPI object
+
+
+class FAPIObject:
+    """A FAPI object represented by a path. Valid, as long as the FAPI Context is valid."""
+
+    def __init__(self, path, fapi_ctx, user_dir, system_dir):
+        self._fapi_ctx = fapi_ctx
+        self._user_dir = user_dir
+        self._system_dir = system_dir
+
+        self.path = path
+
+    @property
+    def json_path(self):
+        """Return the path to the keystore json file (or None if does not exist)."""
+        # strip leading '/' from path
+        path = self.path.lstrip("/")
+
+        # first look at system keystore, then the user keystore...
+        for keystore in [self._system_dir, self._user_dir]:
+            # look for object.json
+            json_file = Path(keystore) / path / "object.json"
+            if json_file.is_file():
+                return json_file
+            # look for <leaf name>.json (policies)
+            json_file = Path(keystore) / f"{path}.json"
+            if json_file.is_file():
+                return json_file
+
+        return None
+
+    @property
+    def object_type(self):
+        """Return the object type of a TPM FAPI object (can be )."""
+        json_file = self.json_path
+        if json_file is None:
+            return ObjectType.none
+
+        # policies are not real FAPI objects, but we treat it as one
+        if "/policy/" in str(json_file):
+            return ObjectType.policy
+
+        json_data = json.loads(json_file.read_bytes())
+        return ObjectType(json_data["objectType"])
+
+    @property
+    def object_type_info(self):
+        """Return the object type of a TPM FAPI object (can be )."""
+        return {
+            ObjectType.none: "",
+            ObjectType.key: "Protected Key",
+            ObjectType.nv: "Protected Memory",
+            ObjectType.ext_pub_key: "External Public Key",
+            ObjectType.hierarchy: "Hierarchy",
+            ObjectType.duplicate: "Duplicate Object",
+            ObjectType.policy: "Policy",
+        }[self.object_type]
 
 
 class TPM:  # pylint: disable=too-many-public-methods
@@ -164,19 +234,24 @@ class TPM:  # pylint: disable=too-many-public-methods
 
         if use_tmp_keystore:
             # Create temporary directories to separate this example's state
-            self._user_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
-            self._log_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
-            self._system_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
+            user_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
+            system_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
+            log_dir = self.ctx_stack.enter_context(tempfile.TemporaryDirectory())
 
             # Add to the configuration overlay
             tmp_keystore_config = {
-                "user_dir": self._user_dir,
-                "system_dir": self._system_dir,
-                "log_dir": self._log_dir,
+                "user_dir": user_dir,
+                "system_dir": system_dir,
+                "log_dir": log_dir,
             }
             self._config_overlay = {**self._config_overlay, **tmp_keystore_config}
 
         self._load_config()
+
+        self._user_dir = self.config_with_overlay["user_dir"]
+        self._system_dir = self.config_with_overlay["system_dir"]
+        self._log_dir = self.config_with_overlay["log_dir"]
+
         self._load_fapi()
 
     def provision(self):
@@ -206,15 +281,15 @@ TfEw607vttBN0Y54LrVOKno1vRXd5sxyRlfB0WL42F4VG5TfcJo5u1Xq7k9m9K57
 8wIDAQAB
 -----END PUBLIC KEY-----"""
         policy = {
-            "description":"Description pol_signed",
-            "policy":[
+            "description": "Description pol_signed",
+            "policy": [
                 {
                     "type": "POLICYSIGNED",
                     "publicKeyHint": "Test key hint",
                     "keyPEM": public_key_pem,
-                    "keyPEMhashAlg": "SHA1"
+                    "keyPEMhashAlg": "SHA1",
                 }
-            ]
+            ],
         }
         self._fapi_ctx.Import("/policy/myPolicy", str(policy))  # policy
 
@@ -292,6 +367,12 @@ VrpSGMIFSu301A==
 
                 subtree = subtree[parent]
         return tree
+
+    def fapi_object(self, path):  # pylint: disable=invalid-name
+        """Return a FAPIObject from a path."""
+        return FAPIObject(
+            path, fapi_ctx=self._fapi_ctx, user_dir=self._user_dir, system_dir=self._system_dir
+        )
 
     def get_description(self, path):
         """Get description from TPM object path."""

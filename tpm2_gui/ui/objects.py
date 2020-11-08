@@ -129,14 +129,15 @@ class ObjectDetails(Gtk.Grid):
 class Objects(Gtk.TreeView):
     """A widget for listing and selecting a FAPI TPM object."""
 
-    def _tree_store_append(self, tree_data, piter_parent=None):
+    def _tree_store_append(self, tree_data, path_parent="", piter_parent=None):
         """
         Take the dict tree_data and append it to the tree_store
         The root key will not be added
         """
         for key, value in tree_data.items():
-            piter_this = self._store.append(piter_parent, [key, ""])  # TODO descr
-            self._tree_store_append(value, piter_this)
+            path = f"{path_parent}/{key}"
+            piter_this = self._store.append(piter_parent, [key, self._tpm.fapi_object(path).object_type_info])
+            self._tree_store_append(value, path_parent=path, piter_parent=piter_this)
 
     def update(self):
         """

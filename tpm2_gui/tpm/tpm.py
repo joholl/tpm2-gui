@@ -113,8 +113,10 @@ class FAPIObject:
         try:
             with CHAR_PTR_PTR() as description:
                 return self._fapi_ctx.GetDescription(self.path, description)
-        except TPM2Error:  # TODO
-            return None
+        except TPM2Error as tpm_error:
+            if tpm_error.rc in (0x60020, 0x00060024):  # TODO Could not open (2x)
+                return None
+            raise tpm_error
 
     @description.setter
     def description(self, value):
@@ -129,8 +131,14 @@ class FAPIObject:
                 with SIZE_T_PTR() as app_data_size:
                     appdata = self._fapi_ctx.GetAppData(self.path, app_data, app_data_size)
                     return hexdump(appdata)
-        except TPM2Error:  # TODO
-            return None
+        except TPM2Error as tpm_error:
+            if tpm_error.rc in (
+                0x60020,
+                0x00060024,
+                0x6001D,
+            ):  # TODO Could not open (2x), Object has no app data
+                return None
+            raise tpm_error
 
     @appdata.setter
     def appdata(self, value):
@@ -142,16 +150,13 @@ class FAPIObject:
     @property
     def certificate(self):
         """Get certifiacte from TPM object path."""
-        # if path == "/P_ECCP256SHA256":
-        #     with UINT8_PTR_PTR() as certificates:
-        #         with SIZE_T_PTR() as certificatesSize:
-        #             ret = self._fapi_ctx.GetPlatformCertificates(certificates, certificatesSize)
-        #             print(ret)
         try:
             with CHAR_PTR_PTR() as x509_cert_data:
                 return self._fapi_ctx.GetCertificate(self.path, x509_cert_data)
-        except TPM2Error:  # TODO
-            return None
+        except TPM2Error as tpm_error:
+            if tpm_error.rc in (0x60020, 0x00060024):  # TODO Could not open (2x)
+                return None
+            raise tpm_error
 
     @certificate.setter
     def certificate(self, value):

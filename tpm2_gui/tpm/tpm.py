@@ -12,12 +12,15 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from tpm2_pytss.binding import (
+    ESYS_TR_NONE,
     CHAR_PTR_PTR,
     SIZE_T_PTR,
     UINT8_PTR,
     UINT8_PTR_PTR,
     ByteArray,
 )
+from tpm2_pytss.tcti import TCTI
+from tpm2_pytss.esys import ESYS
 from tpm2_pytss.exceptions import TPM2Error
 from tpm2_pytss.fapi import DEFAULT_FAPI_CONFIG_PATH, FAPI, export
 from tpm2_pytss.util.simulator import Simulator
@@ -217,6 +220,21 @@ class FAPIObject:
             return ""
         return json.dumps(policy, indent=3)
 
+    @property
+    def nv(self):
+        with UINT8_PTR_PTR() as data:
+            with SIZE_T_PTR() as size:
+                with CHAR_PTR_PTR() as log_data:
+                    try:
+                        data = self._fapi_ctx.NvRead(self.path, data, size, log_data)
+                    except TPM2Error as tpm_error:
+                        if tpm_error.rc in (0x6001D, 0x60020, 0x60024, 0x14A):  # TODO
+                            return None
+                        raise tpm_error
+
+        print(data)
+        return ""
+
 
 class TPM:  # pylint: disable=too-many-public-methods
     """Interface for interacting with the TSS Feature API and the Truste Platform Module."""
@@ -369,6 +387,35 @@ class TPM:  # pylint: disable=too-many-public-methods
         """Provision the FAPI keystore and the TPM."""
         self._fapi_ctx.Provision(None, None, None)
 
+    def keystore_clear(self):
+        """Clear (delete) keystore."""
+        pass  # TODO
+
+    def tpm_clear(self):
+        print()
+        print()
+        print()
+        print()
+
+        tcti_name = self.config_with_overlay["tcti"].split(':')[0]
+        tcti_config = ''.join(self.config_with_overlay["tcti"].split(':')[1:])
+        print(f"{tcti_name}, {tcti_config}")
+        esys = ESYS()
+        tcti = TCTI.load(tcti_name)
+
+        # Create a context stack
+        ctx_stack = contextlib.ExitStack().__enter__()
+        # Enter the contexts
+        tcti_ctx = ctx_stack.enter_context(
+            tcti(config=tcti_config, retry=1)
+        )
+        esys_ctx = ctx_stack.enter_context(esys(tcti_ctx))
+
+        ret = esys_ctx.ClearControl(
+            None, ESYS_TR_NONE, ESYS_TR_NONE, ESYS_TR_NONE, TPMI_YES_NO_PTR(False)
+        )
+        ret = esys_ctx.Clear(ESYS_TR_NONE, ESYS_TR_NONE, ESYS_TR_NONE)
+
     def dummy_populate(self):
         """Populate the FAPI with dummy objects."""
         #         privkey = """-----BEGIN EC PRIVATE KEY-----
@@ -417,6 +464,7 @@ TfEw607vttBN0Y54LrVOKno1vRXd5sxyRlfB0WL42F4VG5TfcJo5u1Xq7k9m9K57
         # ret = self._fapi_ctx.CreateSeal("HS/SRK/mySeal", "noDa", 12, "", "", "Hello World!")
 
         self._fapi_ctx.CreateNv("/nv/Owner/myNV", "noDa", 10, "", "")  # NV
+        self._fapi_ctx.NvWrite() # TODO
         # u8 = UINT8_PTR.frompointer(None)
         print()
 
@@ -514,20 +562,6 @@ VrpSGMIFSu301A==
         except TPM2Error:
             policy = None
         return policy
-
-    # def get_nvdata(self, path):
-    #     """Get NV data from TPM object path."""
-    #     # print("V----")  # TODO rm
-    #     try:
-    #         with UINT8_PTR_PTR() as data:
-    #             with SIZE_T_PTR() as size:
-    #                 with CHAR_PTR_PTR() as log_data:
-    #                     ret = self._fapi_ctx.NvRead(path, data, size, log_data)
-    #                     print(ret)
-    #     except TPM2Error:
-    #         # print("A----")  # TODO rm
-    #         pass
-    #     return None
 
     def encrypt(self, path, plaintext):
         """Encrypt plaintext using TPM object specified via its path."""

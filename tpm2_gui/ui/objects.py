@@ -64,6 +64,11 @@ class ObjectDetails(Gtk.Grid):
                 self._tpm_object,
                 "certificate",
             ),
+            ValueEditView(
+                "NV (secure memory)",
+                self._tpm_object,
+                "nv",
+            ),
         ]
 
         for value_view in self._value_views:

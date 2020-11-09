@@ -140,8 +140,8 @@ class MyWindow(Gtk.Window):
         # self._grid2.attach(refresh_btn, 0, 1, 1, 1)
         self._tpm_details = ObjectDetails(self._tpm)
         self._grid2.attach(self._tpm_details, 1, 0, 1, 1)
-        tpm_operations = TPMObjectOperations(self._tpm)
-        self._grid2.attach(tpm_operations, 0, 1, 2, 1)
+        # tpm_operations = TPMObjectOperations(self._tpm)
+        # self._grid2.attach(tpm_operations, 0, 1, 2, 1)
 
         # page 3: pcrs
         self._grid3 = Gtk.Grid(column_spacing=10, row_spacing=10)
@@ -160,7 +160,7 @@ class MyWindow(Gtk.Window):
         self._tpm_objects.on_selection_fcns.append(self._set_tpm_path)
         self._tpm_objects.on_selection_fcns.append(self._tpm_details.set_tpm_path)
         self._tpm_objects.on_selection_fcns.append(self._tpm_details.reset)
-        self._tpm_objects.on_selection_fcns.append(tpm_operations.set_tpm_path)
+        # self._tpm_objects.on_selection_fcns.append(tpm_operations.set_tpm_path)
 
         self._grid.attach(self._notebook, 0, 2, 2, 1)
         self.add(self._grid)

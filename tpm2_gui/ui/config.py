@@ -116,8 +116,9 @@ class Config(Gtk.Grid):
         self.attach(tpm_provisioned_lbl, 0, row, 1, 1)
         self._tpm_provisioned_value_lbl = Gtk.Label(xalign=0)
         self.attach(self._tpm_provisioned_value_lbl, 1, row, 1, 1)
-        tpm_clear_btn = Gtk.Button(label="Clear TPM")  # TODO
-        self.attach(tpm_clear_btn, 2, row, 1, 1)
+        self._tpm_clear_btn = Gtk.Button(label="Clear TPM")  # TODO
+        self._tpm_clear_btn.connect("clicked", self._on_tpm_clear_btn_clicked)
+        self.attach(self._tpm_clear_btn, 2, row, 1, 1)
         row += 1
 
         consistent_lbl = Gtk.Label(label="Keystore/TPM consistent", xalign=0)
@@ -169,6 +170,10 @@ class Config(Gtk.Grid):
 
     def _on_provision_btn_clicked(self, button):  # pylint: disable=unused-argument
         self._tpm.provision()
+        self._trigger_update()
+
+    def _on_tpm_clear_btn_clicked(self, button):  # pylint: disable=unused-argument
+        self._tpm.tpm_clear()
         self._trigger_update()
 
     def _on_add_dummy_obj_btn_clicked(self, button):  # pylint: disable=unused-argument

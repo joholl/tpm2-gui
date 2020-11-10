@@ -13,10 +13,11 @@ gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
 
 # isort:imports-thirdparty
 from gi.repository import Gdk, Gtk  # noqa: E402
-from tpm.tpm import TPM
-from ui.config import Config
-from ui.objects import ObjectDetails, Objects
-from ui.pcrs import PcrOperations, Pcrs
+
+from .tpm.tpm import TPM
+from .ui.config import Config
+from .ui.objects import ObjectDetails, Objects
+from .ui.pcrs import PcrOperations, Pcrs
 
 # isort:imports-firstparty
 
@@ -217,7 +218,3 @@ def main():
     app = MyApplication(tpm)
     exit_status = app.run(sys.argv)
     sys.exit(exit_status)
-
-
-if __name__ == "__main__":
-    main()

@@ -45,7 +45,7 @@ class ObjectDetails(Gtk.Grid):
                 "appdata",
             ),
             ValueView(
-                "Publik Key",
+                "Public Key",
                 self._tpm_object,
                 "public",
             ),

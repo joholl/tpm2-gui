@@ -114,8 +114,7 @@ class FAPIObject:
     def description(self):
         """Get description from TPM object."""
         try:
-            with CHAR_PTR_PTR() as description:
-                return self._fapi_ctx.GetDescription(self.path, description)
+            return self._fapi_ctx.GetDescription(self.path)
         except TPM2Error as tpm_error:
             if tpm_error.rc in (0x60020, 0x00060024):  # TODO Could not open (2x)
                 return None
@@ -129,11 +128,12 @@ class FAPIObject:
     @property
     def appdata(self):
         """Get application data of TPM object."""
+
         try:
-            with UINT8_PTR_PTR() as app_data:
-                with SIZE_T_PTR() as app_data_size:
-                    appdata = self._fapi_ctx.GetAppData(self.path, app_data, app_data_size)
-                    return hexdump(appdata)
+            appdata = self._fapi_ctx.GetAppData(self.path)
+            if not appdata:
+                return ""
+            return hexdump(appdata)
         except TPM2Error as tpm_error:
             if tpm_error.rc in (
                 0x60020,
@@ -146,16 +146,14 @@ class FAPIObject:
     @appdata.setter
     def appdata(self, value):
         """Set application data of TPM object."""
-        with UINT8_PTR() as app_data:
-            app_data_size = len(value)
-            self._fapi_ctx.SetAppData(self.path, app_data, app_data_size)  # TODO
+        app_data = UINT8_PTR(value=48 + len(value))
+        self._fapi_ctx.SetAppData(self.path, app_data, 1)
 
     @property
     def certificate(self):
         """Get certifiacte from TPM object path."""
         try:
-            with CHAR_PTR_PTR() as x509_cert_data:
-                return self._fapi_ctx.GetCertificate(self.path, x509_cert_data)
+            return self._fapi_ctx.GetCertificate(self.path)
         except TPM2Error as tpm_error:
             if tpm_error.rc in (0x60020, 0x00060024):  # TODO Could not open (2x)
                 return None
@@ -169,28 +167,17 @@ class FAPIObject:
     @property
     def public_private_policy(self):
         """Get public and private portion as well as policy from TPM object path."""
-        with UINT8_PTR_PTR() as tpm2b_public:
-            with SIZE_T_PTR() as tpm2b_public_size:
-                with UINT8_PTR_PTR() as tpm2b_private:
-                    with SIZE_T_PTR() as tpm2b_private_size:
-                        with CHAR_PTR_PTR() as policy:
-                            try:
-                                public, private, policy = self._fapi_ctx.GetTpmBlobs(
-                                    self.path,
-                                    tpm2b_public,
-                                    tpm2b_public_size,
-                                    tpm2b_private,
-                                    tpm2b_private_size,
-                                    policy,
-                                )
-                            except TPM2Error as tpm_error:
-                                if tpm_error.rc in (
-                                    0x6001D,
-                                    0x60020,
-                                    0x60024,
-                                ):  # TODO bad path, Could not open (2x)
-                                    return (None, None, None)
-                                raise tpm_error
+
+        try:
+            public, private, policy = self._fapi_ctx.GetTpmBlobs(self.path)
+        except TPM2Error as tpm_error:
+            if tpm_error.rc in (
+                0x6001D,
+                0x60020,
+                0x60024,
+            ):  # TODO bad path, Could not open (2x)
+                return (None, None, None)
+            raise tpm_error
 
         return (public, private, policy)
 
@@ -222,15 +209,13 @@ class FAPIObject:
 
     @property
     def nv(self):
-        with UINT8_PTR_PTR() as data:
-            with SIZE_T_PTR() as size:
-                with CHAR_PTR_PTR() as log_data:
-                    try:
-                        data = self._fapi_ctx.NvRead(self.path, data, size, log_data)
-                    except TPM2Error as tpm_error:
-                        if tpm_error.rc in (0x6001D, 0x60020, 0x60024, 0x14A):  # TODO
-                            return None
-                        raise tpm_error
+        """Get the conents of the NV memory from a given NV index."""
+        try:
+            data = self._fapi_ctx.NvRead(self.path)
+        except TPM2Error as tpm_error:
+            if tpm_error.rc in (0x6001D, 0x60020, 0x60024, 0x14A):  # TODO
+                return None
+            raise tpm_error
 
         print(data)
         return ""
@@ -256,6 +241,9 @@ class TPM:  # pylint: disable=too-many-public-methods
         self._fapi_ctx = None
 
         self.reload()
+
+        self.provision()  # TODO joho
+
         # self.dummy_populate()  # TODO
 
     def __del__(self):
@@ -397,8 +385,8 @@ class TPM:  # pylint: disable=too-many-public-methods
         print()
         print()
 
-        tcti_name = self.config_with_overlay["tcti"].split(':')[0]
-        tcti_config = ''.join(self.config_with_overlay["tcti"].split(':')[1:])
+        tcti_name = self.config_with_overlay["tcti"].split(":")[0]
+        tcti_config = "".join(self.config_with_overlay["tcti"].split(":")[1:])
         print(f"{tcti_name}, {tcti_config}")
         esys = ESYS()
         tcti = TCTI.load(tcti_name)
@@ -406,9 +394,7 @@ class TPM:  # pylint: disable=too-many-public-methods
         # Create a context stack
         ctx_stack = contextlib.ExitStack().__enter__()
         # Enter the contexts
-        tcti_ctx = ctx_stack.enter_context(
-            tcti(config=tcti_config, retry=1)
-        )
+        tcti_ctx = ctx_stack.enter_context(tcti(config=tcti_config, retry=1))
         esys_ctx = ctx_stack.enter_context(esys(tcti_ctx))
 
         ret = esys_ctx.ClearControl(
@@ -464,7 +450,7 @@ TfEw607vttBN0Y54LrVOKno1vRXd5sxyRlfB0WL42F4VG5TfcJo5u1Xq7k9m9K57
         # ret = self._fapi_ctx.CreateSeal("HS/SRK/mySeal", "noDa", 12, "", "", "Hello World!")
 
         self._fapi_ctx.CreateNv("/nv/Owner/myNV", "noDa", 10, "", "")  # NV
-        self._fapi_ctx.NvWrite() # TODO
+        self._fapi_ctx.NvWrite()  # TODO
         # u8 = UINT8_PTR.frompointer(None)
         print()
 
@@ -500,14 +486,14 @@ VrpSGMIFSu301A==
 
     def get_path_tree(self):
         """Get paths of TPM FAPI objects in a tree structure, e.g. {'': {'P_ECCP256SHA256': {'HN': {}, ...}}}"""
-        with CHAR_PTR_PTR() as info:
-            try:
-                info = self._fapi_ctx.List("", info)
-            except TPM2Error as tpm_error:
-                if tpm_error.rc == 0x60034:  # TODO import rc already provisioned?
-                    return {"": {}}
+        try:
+            search_path = ""
+            info = self._fapi_ctx.List(search_path)
+        except TPM2Error as tpm_error:
+            if tpm_error.rc == 0x60034:  # TODO import rc already provisioned?
+                return {"": {}}  # empty tree
 
-                raise tpm_error
+            raise tpm_error
 
         tree = dict()
         for path in info.split(":"):
@@ -536,13 +522,9 @@ VrpSGMIFSu301A==
     def get_pcr(self, index):
         """Get single Platform Configuration Register value from index."""
         # TODO fetch multiple pcrs at once
+
         try:
-            with UINT8_PTR_PTR() as pcr_value:
-                with SIZE_T_PTR() as pcr_value_size:
-                    with CHAR_PTR_PTR() as pcr_log:
-                        pcr_value, pcr_log = self._fapi_ctx.PcrRead(
-                            index, pcr_value, pcr_value_size, pcr_log
-                        )
+            pcr_value, pcr_log = self._fapi_ctx.PcrRead(index)
 
         except TPM2Error:
             pcr_value = None
@@ -633,8 +615,8 @@ VrpSGMIFSu301A==
         """Extend TPM Platform Configuration Register."""
         for idx in indices:
             try:
-                with UINT8_PTR(value=1) as data:
-                    self._fapi_ctx.PcrExtend(idx, data, 1, '{ "some": "data" }')  # TODO
+                data = UINT8_PTR(value=1)
+                self._fapi_ctx.PcrExtend(idx, data, 1, '{ "some": "data" }')  # TODO
             except TPM2Error:
                 pass
             # return policy

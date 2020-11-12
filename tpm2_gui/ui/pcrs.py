@@ -118,7 +118,10 @@ class PcrOperations(Gtk.Grid):
         self._update_extend_btn()
 
     def _on_extend_clicked(self, button):  # pylint: disable=unused-argument
-        self._tpm.pcr_extend(self.pcr_selection)
+        text = self._data_txt_buffer.get_text(
+            self._data_txt_buffer.get_start_iter(), self._data_txt_buffer.get_end_iter(), True
+        )
+        self._tpm.pcr_extend(self.pcr_selection, text.encode("utf-8"))
 
         if self.extend_cb:
             self.extend_cb()

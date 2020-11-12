@@ -12,17 +12,18 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from tpm2_pytss.binding import (
-    ESYS_TR_NONE,
     CHAR_PTR_PTR,
-    SIZE_T_PTR,
-    UINT8_PTR,
-    UINT8_PTR_PTR,
+    ESYS_TR_NONE,
+    ESYS_TR_PASSWORD,
+    ESYS_TR_RH_PLATFORM,
+    TPMI_YES_NO_PTR,
+    UINT8_ARRAY,
     ByteArray,
 )
-from tpm2_pytss.tcti import TCTI
 from tpm2_pytss.esys import ESYS
 from tpm2_pytss.exceptions import TPM2Error
 from tpm2_pytss.fapi import DEFAULT_FAPI_CONFIG_PATH, FAPI, export
+from tpm2_pytss.tcti import TCTI
 from tpm2_pytss.util.simulator import Simulator
 
 
@@ -146,8 +147,13 @@ class FAPIObject:
     @appdata.setter
     def appdata(self, value):
         """Set application data of TPM object."""
-        app_data = UINT8_PTR(value=48 + len(value))
-        self._fapi_ctx.SetAppData(self.path, app_data, 1)
+        value = bytearray(value, "utf-8")
+        app_data_size = len(value)
+        app_data = UINT8_ARRAY(nelements=app_data_size)
+        for i, byte in enumerate(value):
+            app_data[i] = byte
+
+        self._fapi_ctx.SetAppData(self.path, app_data.cast(), app_data_size)
 
     @property
     def certificate(self):
@@ -208,17 +214,57 @@ class FAPIObject:
         return json.dumps(policy, indent=3)
 
     @property
-    def nv(self):
+    def nv(self):  # pylint: disable=invalid-name
         """Get the conents of the NV memory from a given NV index."""
         try:
             data = self._fapi_ctx.NvRead(self.path)
+            return hexdump(data[0])
         except TPM2Error as tpm_error:
             if tpm_error.rc in (0x6001D, 0x60020, 0x60024, 0x14A):  # TODO
                 return None
             raise tpm_error
 
-        print(data)
+    def encrypt(self, plaintext):
+        """Encrypt plaintext using TPM object specified via its path."""
+        if plaintext:
+            data_size = len(plaintext)
+            data = UINT8_ARRAY(nelements=data_size)
+            for i, byte in enumerate(plaintext):
+                data[i] = byte
+
+            # try:
+            ret = self._fapi_ctx.Encrypt(self.path, data.cast(), data_size)
+            # except TPM2Error as tpm_error:
+            #     raise tpm_error
+            print(ret)
+
         return ""
+
+    def decrypt(self, ciphertext):
+        """Decrypt ciphertext using TPM object specified via its path."""
+        print('decrypt "' + str(ciphertext) + '" with ' + str(self.path))
+        return ciphertext.lower()
+
+    def sign(self, message):
+        """Sign message using TPM object specified via its path."""
+        if message:
+            data_size = len(message)
+            data = UINT8_ARRAY(nelements=data_size)
+            for i, byte in enumerate(message):
+                data[i] = byte
+
+            # try:
+            ret = self._fapi_ctx.Sign(self.path, data.cast(), data_size)
+            # except TPM2Error as tpm_error:
+            #     raise tpm_error
+            print(ret)
+
+        return ""
+
+    def verify(self, signature):
+        """Verify signature using TPM object specified via its path."""
+        print('verify "' + str(signature) + '" with ' + str(self.path))
+        return signature.lower()
 
 
 class TPM:  # pylint: disable=too-many-public-methods
@@ -237,12 +283,13 @@ class TPM:  # pylint: disable=too-many-public-methods
         self._log_dir = None
         self._system_dir = None
 
-        self._fapi = None
+        self._using_fapi = True
         self._fapi_ctx = None
+        self._esys_ctx = None
 
         self.reload()
 
-        self.provision()  # TODO joho
+        # self.tpm_clear()
 
         # self.dummy_populate()  # TODO
 
@@ -314,25 +361,39 @@ class TPM:  # pylint: disable=too-many-public-methods
         self._config = {**self._config, **additional_kvps}
 
     def _load_fapi(self):
-        # Apply the configuration overlay
-        config_with_overlay = {**self._config, **self._config_overlay}
-
         # Create a named tuple (with an export function needed by the fapi constructor) from the dict
-        tpm_configuration = NamedTuple("tpm_configuration", [(e, Any) for e in config_with_overlay])
+        tpm_configuration = NamedTuple(
+            "tpm_configuration", [(e, Any) for e in self.config_with_overlay]
+        )
         tpm_configuration.export = export
         config_tuples = tpm_configuration(  # pylint: disable=not-callable
-            *config_with_overlay.values()
+            *self.config_with_overlay.values()
         )
 
-        # Create the FAPI object
-        self._fapi = FAPI(config_tuples)
+        # Create FAPI, enter the context (creates TCTI connection)
+        self._fapi_ctx = self.ctx_stack.enter_context(FAPI(config_tuples))
 
-        # Enter the context, create TCTI connection
-        self._fapi_ctx = self.ctx_stack.enter_context(self._fapi)
+    def _load_esys(self):
+        tcti_name = self.config_with_overlay["tcti"].split(":")[0]
+        tcti_config = "".join(self.config_with_overlay["tcti"].split(":")[1:])
+        esys = ESYS()
+        tcti = TCTI.load(tcti_name)
+
+        # Create a context stack
+        self.ctx_stack = contextlib.ExitStack().__enter__()
+        # Enter the contexts
+        tcti_ctx = self.ctx_stack.enter_context(
+            tcti(config=tcti_config, retry=1)  # pylint: disable=not-callable
+        )
+        self._esys_ctx = self.ctx_stack.enter_context(esys(tcti_ctx))
+        # Call Startup and clear the TPM
+        self._esys_ctx.Startup(self._esys_ctx.TPM2_SU_CLEAR)
+        # Set the timeout to blocking
+        self._esys_ctx.SetTimeout(self._esys_ctx.TSS2_TCTI_TIMEOUT_BLOCK)
 
     def reload(self, use_simulator=True, use_tmp_keystore=True):
         """Load or reload FAPI including configuration and simulator. Does not provision."""
-        self.ctx_stack.pop_all()  # TODO is this right?
+        self.ctx_stack.pop_all()  # TODO is this right? call close on ExitStack?
         self._config_overlay = {}
 
         if use_simulator:
@@ -369,38 +430,43 @@ class TPM:  # pylint: disable=too-many-public-methods
         self._system_dir = self.config_with_overlay["system_dir"]
         self._log_dir = self.config_with_overlay["log_dir"]
 
-        self._load_fapi()
+        if self._using_fapi:
+            self._load_fapi()
+        else:
+            self._load_esys()
+
+    def _switch_to_fapi(self):
+        self._using_fapi = True
+        self.reload()
+
+    def _switch_to_esys(self):
+        self._using_fapi = False
+        self.reload()
 
     def provision(self):
         """Provision the FAPI keystore and the TPM."""
         self._fapi_ctx.Provision(None, None, None)
 
     def keystore_clear(self):
-        """Clear (delete) keystore."""
-        pass  # TODO
+        """Clear (delete) keystore."""  # TODO
 
     def tpm_clear(self):
-        print()
-        print()
-        print()
-        print()
+        """Clear TPM."""
+        self._switch_to_esys()
 
-        tcti_name = self.config_with_overlay["tcti"].split(":")[0]
-        tcti_config = "".join(self.config_with_overlay["tcti"].split(":")[1:])
-        print(f"{tcti_name}, {tcti_config}")
-        esys = ESYS()
-        tcti = TCTI.load(tcti_name)
-
-        # Create a context stack
-        ctx_stack = contextlib.ExitStack().__enter__()
-        # Enter the contexts
-        tcti_ctx = ctx_stack.enter_context(tcti(config=tcti_config, retry=1))
-        esys_ctx = ctx_stack.enter_context(esys(tcti_ctx))
-
-        ret = esys_ctx.ClearControl(
-            None, ESYS_TR_NONE, ESYS_TR_NONE, ESYS_TR_NONE, TPMI_YES_NO_PTR(False)
+        # authValue = TPM2B_AUTH(size=0, buffer=[])
+        # self.esys_ctx.TR_SetAuth(ESYS_TR_RH_OWNER, authValue)
+        self._esys_ctx.ClearControl(
+            ESYS_TR_RH_PLATFORM,
+            ESYS_TR_PASSWORD,
+            ESYS_TR_NONE,
+            ESYS_TR_NONE,
+            TPMI_YES_NO_PTR(False),
         )
-        ret = esys_ctx.Clear(ESYS_TR_NONE, ESYS_TR_NONE, ESYS_TR_NONE)
+
+        self._esys_ctx.Clear(ESYS_TR_RH_PLATFORM, ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE)
+
+        self._switch_to_fapi()
 
     def dummy_populate(self):
         """Populate the FAPI with dummy objects."""
@@ -449,9 +515,14 @@ TfEw607vttBN0Y54LrVOKno1vRXd5sxyRlfB0WL42F4VG5TfcJo5u1Xq7k9m9K57
 
         # ret = self._fapi_ctx.CreateSeal("HS/SRK/mySeal", "noDa", 12, "", "", "Hello World!")
 
-        self._fapi_ctx.CreateNv("/nv/Owner/myNV", "noDa", 10, "", "")  # NV
-        self._fapi_ctx.NvWrite()  # TODO
-        # u8 = UINT8_PTR.frompointer(None)
+        self._fapi_ctx.CreateNv("/nv/Owner/myNV", "noDa", 11, "", "")  # NV
+
+        data_size = 11
+        data = UINT8_ARRAY(nelements=data_size)
+        for i, byte in enumerate("Hello World"):
+            data[i] = ord(byte)
+        self._fapi_ctx.NvWrite("/nv/Owner/myNV", data.cast(), data_size)  # TODO
+        # b = UINT8_PTR.frompointer(None)
         print()
 
         buf = ByteArray(3)  # 'cast', 'frompointer', 'this'
@@ -545,60 +616,6 @@ VrpSGMIFSu301A==
             policy = None
         return policy
 
-    def encrypt(self, path, plaintext):
-        """Encrypt plaintext using TPM object specified via its path."""
-        if plaintext:
-            self.get_path_tree()  # TODO rm
-            print('encrypt "' + str(plaintext) + '" with ' + str(path))
-
-            # try:
-            #     with UINT8_PTR_PTR() as keyPath:
-            #         with UINT8_PTR() as plaintext:
-            #             print(dir(plaintext))
-
-            #             bla = ByteArray(4)
-            #             s = b"Test"
-            #             for i in range(0, 4):
-            #                 bla[i] = s[i]
-            #             print("#" + str(type(plaintext.frompointer(bla))))
-            #             plaintext = plaintext.frompointer(bla)
-
-            #             with SIZE_T_PTR() as plaintextSize:
-            #                 with UINT8_PTR_PTR() as cipherText:
-            #                     with SIZE_T_PTR() as cipherTextSize:
-            #                         ret = self._fapi_ctx.Encrypt(
-            #                           path,
-            #                           plaintext,
-            #                           plaintextSize,
-            #                           cipherText,
-            #                           cipherTextSize
-            #                         )
-            #                         print("----", ret)
-            # except TPM2Error:
-            #     pass # TODO
-
-            return plaintext.upper()
-
-        return ""
-
-    def decrypt(self, path, ciphertext):
-        """Decrypt ciphertext using TPM object specified via its path."""
-        self.get_path_tree()  # TODO rm
-        print('decrypt "' + str(ciphertext) + '" with ' + str(path))
-        return ciphertext.lower()
-
-    def sign(self, path, message):
-        """Sign message using TPM object specified via its path."""
-        self.get_path_tree()  # TODO rm
-        print('sign "' + str(message) + '" with ' + str(path))
-        return message.upper()
-
-    def verify(self, path, signature):
-        """Verify signature using TPM object specified via its path."""
-        self.get_path_tree()  # TODO rm
-        print('verify "' + str(signature) + '" with ' + str(path))
-        return signature.lower()
-
     # def auth_policy(self, policy_path, key_path):
     #     """TODO"""
     #     print("---- AuthorizePolicy")  # TODO rm
@@ -611,26 +628,13 @@ VrpSGMIFSu301A==
     #         pass
     #     return None
 
-    def pcr_extend(self, indices):
-        """Extend TPM Platform Configuration Register."""
+    def pcr_extend(self, indices, value):
+        """Extend TPM Platform Configuration Register with byte array."""
         for idx in indices:
-            try:
-                data = UINT8_PTR(value=1)
-                self._fapi_ctx.PcrExtend(idx, data, 1, '{ "some": "data" }')  # TODO
-            except TPM2Error:
-                pass
-            # return policy
-
-    #     TSS2_RC Fapi_Quote(
-    # FAPI_CONTEXT   *context,
-    # uint32_t       *pcrList,
-    # size_t          pcr_list_size,
-    # char     const *keyPath,
-    # char     const *quoteType,
-    # uint8_t  const *qualifying_data,
-    # size_t          qualifyingDataSize,
-    # char          **quoteInfo,
-    # uint8_t       **signature,
-    # size_t         *signatureSize,
-    # char          **pcrLog,
-    # char          **certificate);
+            data_size = len(value)
+            data = UINT8_ARRAY(nelements=data_size)
+            for i, byte in enumerate(value):
+                data[i] = byte
+            self._fapi_ctx.PcrExtend(
+                idx, data.cast(), data_size, '{ "some": "data" }'
+            )  # TODO pcr log

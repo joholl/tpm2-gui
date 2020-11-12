@@ -61,6 +61,7 @@ class ValueView:
         self.textview.show()
 
     def automatic_visibility(self):
+        """Show if TPM attribute exists for path, hide otherwise."""
         if self._obj is None or getattr(self._obj, self._attr) is None:
             self.hide()
         else:

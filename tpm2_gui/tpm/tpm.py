@@ -11,6 +11,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from cryptography.hazmat.primitives import hashes
 from tpm2_pytss.binding import (
     CHAR_PTR_PTR,
     ESYS_TR_NONE,
@@ -248,16 +249,24 @@ class FAPIObject:
     def sign(self, message):
         """Sign message using TPM object specified via its path."""
         if message:
-            data_size = len(message)
+            # message has to be hashed: use SHA256
+            digest = hashes.Hash(hashes.SHA256())
+            digest.update(message)
+            digest = digest.finalize()
+
+            data_size = len(digest)
             data = UINT8_ARRAY(nelements=data_size)
-            for i, byte in enumerate(message):
+            for i, byte in enumerate(digest):
                 data[i] = byte
 
             # try:
-            ret = self._fapi_ctx.Sign(self.path, data.cast(), data_size)
+            padding = None
+            ret = self._fapi_ctx.Sign(
+                self.path, padding, data.cast(), data_size
+            )  # TODO returns sign., pub key, cert
             # except TPM2Error as tpm_error:
             #     raise tpm_error
-            print(ret)
+            return hexdump(ret[0])
 
         return ""
 

@@ -16,6 +16,7 @@ from gi.repository import Gdk, Gtk  # noqa: E402
 
 from .tpm.tpm import TPM
 from .ui.config import Config
+from .ui.info import Info
 from .ui.objects import ObjectDetails, Objects
 from .ui.pcrs import PcrOperations, Pcrs
 
@@ -137,7 +138,11 @@ class MyWindow(Gtk.Window):
         self._tpm_config = Config(self._tpm)
         self._notebook.append_page(self._tpm_config, Gtk.Label(label="Config"))
 
-        # page 2: tpm objects
+        # page 2: info
+        self._tpm_info = Info(self._tpm)
+        self._notebook.append_page(self._tpm_info, Gtk.Label(label="Info"))
+
+        # page 3: tpm objects
         self._grid2 = Gtk.Grid(column_spacing=10, row_spacing=10)
         self._tpm_objects = Objects(self._tpm)
         self._grid2.attach(self._tpm_objects, 0, 0, 1, 1)
@@ -148,7 +153,7 @@ class MyWindow(Gtk.Window):
         tpm_operations = TPMObjectOperations(self._tpm)
         self._grid2.attach(tpm_operations, 0, 1, 2, 1)
 
-        # page 3: pcrs
+        # page 4: pcrs
         self._grid3 = Gtk.Grid(column_spacing=10, row_spacing=10)
         _tpmpcrs = Pcrs(self._tpm)
         self._grid3.attach(_tpmpcrs, 0, 0, 1, 1)

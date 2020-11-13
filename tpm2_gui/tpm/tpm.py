@@ -27,6 +27,8 @@ from tpm2_pytss.fapi import DEFAULT_FAPI_CONFIG_PATH, FAPI, export
 from tpm2_pytss.tcti import TCTI
 from tpm2_pytss.util.simulator import Simulator
 
+from .info import TPMInfo
+
 
 def hexdump(byte_array, line_len=16):
     """Get hexdump from bytearray."""
@@ -375,7 +377,9 @@ class TPM:  # pylint: disable=too-many-public-methods
         tcti = TCTI.load(tcti_name)
 
         # Create a context stack
-        self.ctx_stack = contextlib.ExitStack().__enter__() # TODO this is not right! use existing one!
+        self.ctx_stack = (
+            contextlib.ExitStack().__enter__()
+        )  # TODO this is not right! use existing one!
         # Enter the contexts
         tcti_ctx = self.ctx_stack.enter_context(
             tcti(config=tcti_config, retry=1)  # pylint: disable=not-callable
@@ -581,6 +585,12 @@ VrpSGMIFSu301A==
         return FAPIObject(  # TODO return error if path is not in list?
             path, fapi_ctx=self._fapi_ctx, user_dir=self._user_dir, system_dir=self._system_dir
         )
+
+    @property
+    def info(self):
+        """Return FAPI info."""
+        info = self._fapi_ctx.GetInfo()
+        return TPMInfo(info)
 
     def get_pcr(self, index):
         """Get single Platform Configuration Register value from index."""

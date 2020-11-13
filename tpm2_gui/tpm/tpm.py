@@ -298,10 +298,6 @@ class TPM:  # pylint: disable=too-many-public-methods
 
         self.reload()
 
-        # self.tpm_clear()
-
-        # self.dummy_populate()  # TODO
-
     def __del__(self):
         self.ctx_stack.pop_all()  # TODO is this right?
 
@@ -350,16 +346,6 @@ class TPM:  # pylint: disable=too-many-public-methods
         profile_name = self.config_with_overlay["profile_name"]
         return (system_dir / profile_name).is_dir()
 
-    @property
-    def is_tpm_provisioned(self):
-        """Determine if the TPM is provisioned."""
-        return False  # TODO
-
-    @property
-    def is_consistent(self):
-        """If FAPI keystore and TPM state is consistent."""
-        return False  # TODO
-
     def _load_config(self):
         # Parse config file into a dict
         default_fapi_config_contents = self._config_path.read_text()
@@ -389,7 +375,7 @@ class TPM:  # pylint: disable=too-many-public-methods
         tcti = TCTI.load(tcti_name)
 
         # Create a context stack
-        self.ctx_stack = contextlib.ExitStack().__enter__()
+        self.ctx_stack = contextlib.ExitStack().__enter__() # TODO this is not right! use existing one!
         # Enter the contexts
         tcti_ctx = self.ctx_stack.enter_context(
             tcti(config=tcti_config, retry=1)  # pylint: disable=not-callable
@@ -402,7 +388,7 @@ class TPM:  # pylint: disable=too-many-public-methods
 
     def reload(self, use_simulator=True, use_tmp_keystore=True):
         """Load or reload FAPI including configuration and simulator. Does not provision."""
-        self.ctx_stack.pop_all()  # TODO is this right? call close on ExitStack?
+        self.ctx_stack.close()
         self._config_overlay = {}
 
         if use_simulator:
@@ -455,9 +441,6 @@ class TPM:  # pylint: disable=too-many-public-methods
     def provision(self):
         """Provision the FAPI keystore and the TPM."""
         self._fapi_ctx.Provision(None, None, None)
-
-    def keystore_clear(self):
-        """Clear (delete) keystore."""  # TODO
 
     def tpm_clear(self):
         """Clear TPM."""

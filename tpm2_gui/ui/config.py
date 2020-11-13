@@ -104,27 +104,13 @@ class Config(Gtk.Grid):
         self._tmp_keystore_chkbtn.connect("toggled", self._on_config_changed)
         self._sim_chkbtn.connect("toggled", self._on_config_changed)
 
-        keystore_provisioned_lbl = Gtk.Label(label="Keystore provisioned", xalign=0)
+        keystore_provisioned_lbl = Gtk.Label(label="TPM & Keystore provisioned:", xalign=0)
         self.attach(keystore_provisioned_lbl, 0, row, 1, 1)
         self._keystore_provisioned_value_lbl = Gtk.Label(label="Yes", xalign=0)
         self.attach(self._keystore_provisioned_value_lbl, 1, row, 1, 1)
-        keystore_clear_btn = Gtk.Button(label="Clear Keystore")
-        self.attach(keystore_clear_btn, 2, row, 1, 1)  # TODO
-        row += 1
-
-        tpm_provisioned_lbl = Gtk.Label(label="TPM provisioned", xalign=0)
-        self.attach(tpm_provisioned_lbl, 0, row, 1, 1)
-        self._tpm_provisioned_value_lbl = Gtk.Label(xalign=0)
-        self.attach(self._tpm_provisioned_value_lbl, 1, row, 1, 1)
-        self._tpm_clear_btn = Gtk.Button(label="Clear TPM")  # TODO
+        self._tpm_clear_btn = Gtk.Button(label="Clear TPM & Keystore")  # TODO
         self._tpm_clear_btn.connect("clicked", self._on_tpm_clear_btn_clicked)
         self.attach(self._tpm_clear_btn, 2, row, 1, 1)
-        row += 1
-
-        consistent_lbl = Gtk.Label(label="Keystore/TPM consistent", xalign=0)
-        self.attach(consistent_lbl, 0, row, 1, 1)
-        self._consistent_value_lbl = Gtk.Label(xalign=0)  # TODO
-        self.attach(self._consistent_value_lbl, 1, row, 1, 1)
         row += 1
 
         self._add_dummy_obj_btn = Gtk.Button(label="Add Dummy Objects")
@@ -200,8 +186,6 @@ class Config(Gtk.Grid):
         self.config_list.update()
 
         self._keystore_provisioned_value_lbl.set_text(str(self._tpm.is_keystore_provisioned))
-        self._tpm_provisioned_value_lbl.set_text(str(self._tpm.is_tpm_provisioned))
-        self._consistent_value_lbl.set_text(str(self._tpm.is_consistent))
 
         self._add_dummy_obj_btn.set_sensitive(self._tpm.is_keystore_provisioned)
         self._provision_btn.set_sensitive(not self._tpm.is_keystore_provisioned)

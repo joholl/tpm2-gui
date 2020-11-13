@@ -19,17 +19,21 @@ for f in ${files}; do
 done
 
 echo "################################# ISORT #################################"
-isort ${files} || exitcode=1
+isort --check-only ${files} || exitcode=1
 echo "################################# BLACK #################################"
 black --quiet --check --diff ${module} || exitcode=1
 # black ${module} 2>&1  | grep -P '^\d+ files left unchanged.' || echo error
 echo "################################# PYLINT ################################"
 pylint --score=n ${module} || exitcode=1
 # echo "################################## MYPY #################################"
-#mypy ${module}  || exitcode=1 #TODO
+# mypy ${module}  || exitcode=1 #TODO
 echo "################################# FLAKE8 ################################"
 flake8 ${module} || exitcode=1
 echo "################################# BANDIT ################################"
 bandit --quiet --recursive ${module} || exitcode=1
+
+# Format
+isort ${files}
+black ${module}
 
 test "${exitcode}" = 0

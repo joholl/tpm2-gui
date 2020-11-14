@@ -116,24 +116,6 @@ class MyWindow(Gtk.Window):
             Gdk.Screen.get_default(), self.style_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
-        self._grid = Gtk.Grid(column_spacing=10, row_spacing=10)
-
-        # Path info
-        path_lbl = Gtk.Label(label="Path", xalign=0)
-        self._grid.attach(path_lbl, 0, 0, 1, 1)
-        self._path_txt = Gtk.Entry()
-        self._path_txt.set_hexpand(True)
-        self._path_txt.set_editable(False)
-        self._grid.attach(self._path_txt, 1, 0, 1, 1)
-
-        # PCR info
-        pcr_lbl = Gtk.Label(label="PCRs", xalign=0)
-        self._grid.attach(pcr_lbl, 0, 1, 1, 1)
-        self._pcr_txt = Gtk.Entry()
-        self._pcr_txt.set_hexpand(True)
-        self._pcr_txt.set_editable(False)
-        self._grid.attach(self._pcr_txt, 1, 1, 1, 1)
-
         self._notebook = Gtk.Notebook()
 
         # page 1: tcti, config
@@ -166,44 +148,28 @@ class MyWindow(Gtk.Window):
         # register callbacks
         self._tpm_config.add_on_state_change(self.update)
 
-        _tpmpcrs.on_selection_fcns.append(self._set_pcr_selection)
         _tpmpcrs.on_selection_fcns.append(_tpmpcr_operations.set_pcr_selection)
 
-        self._tpm_objects.on_selection_fcns.append(self._set_tpm_path)
         self._tpm_objects.on_selection_fcns.append(self._tpm_details.set_tpm_path)
         self._tpm_objects.on_selection_fcns.append(self._tpm_details.reset)
         self._tpm_objects.on_selection_fcns.append(tpm_operations.set_tpm_path)
 
-        self._grid.attach(self._notebook, 0, 2, 2, 1)
-        self.add(self._grid)
+        self.add(self._notebook)
 
         self.update()
-
-    def _set_tpm_path(self, path):
-        self._path_txt.set_text(path)
-
-    def _set_pcr_selection(self, selection):
-        self._pcr_txt.set_text(str(selection))
 
     def update(self):
         """Update all widget states."""
         self._tpm_config.update()
 
-        if self._tpm.is_keystore_provisioned:  # TODO and TPM provisioned? and consistent?
+        if self._tpm.is_keystore_provisioned:
             if self._notebook.page_num(self._grid2) == -1:
                 self._notebook.append_page(self._grid2, Gtk.Label(label="Paths"))
                 self._notebook.show_all()
             self._tpm_objects.update()
-
-            if self._notebook.page_num(self._grid3) == -1:
-                self._notebook.append_page(self._grid3, Gtk.Label(label="PCRs"))
-                self._notebook.show_all()
-            self._tpm_details.update()
         else:
             if self._notebook.page_num(self._grid2) > -1:
                 self._notebook.remove_page(self._notebook.page_num(self._grid2))
-            if self._notebook.page_num(self._grid3) > -1:
-                self._notebook.remove_page(self._notebook.page_num(self._grid3))
 
 
 class MyApplication(Gtk.Application):

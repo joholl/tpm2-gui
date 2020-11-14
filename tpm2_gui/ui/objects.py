@@ -25,15 +25,15 @@ class ObjectDetails(Gtk.Grid):
 
         row = 0
 
-        path_lbl = Gtk.Label(label="Path", xalign=0)
-        self.attach(path_lbl, 0, row, 1, 1)
-        self._path_txt = Gtk.Entry()
-        self._path_txt.set_hexpand(True)
-        self._path_txt.set_editable(False)
-        self.attach(self._path_txt, 1, row, 1, 1)
+        self.heading_lbl = Gtk.Label(xalign=0)
+        self.heading_lbl.get_style_context().add_class("object_details_heading")
+        self.heading_lbl.set_use_markup(True)
+        self.attach(self.heading_lbl, 0, row, 1, 1)
         row += 1
 
         self._value_views = [
+            ValueView("Path", self._tpm_object, "path", multiline=False),
+            ValueView("Keystore File", self._tpm_object, "json_path", multiline=False),
             ValueEditView(
                 "Description",
                 self._tpm_object,
@@ -48,11 +48,6 @@ class ObjectDetails(Gtk.Grid):
                 "Public Key",
                 self._tpm_object,
                 "public",
-            ),
-            ValueView(
-                "Private Key",
-                self._tpm_object,
-                "private",
             ),
             ValueView(
                 "Policy",
@@ -99,8 +94,11 @@ class ObjectDetails(Gtk.Grid):
 
     def update(self):
         """Update the widget state according to the currently selected path."""
+
         if self._path is not None:
-            self._path_txt.set_text(self._path)
+            obj = self._tpm.fapi_object(self._path)
+
+            self.heading_lbl.set_text(obj.object_type_info)
 
             for value_view in self._value_views:
                 value_view.automatic_visibility()

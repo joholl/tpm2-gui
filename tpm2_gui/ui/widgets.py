@@ -15,23 +15,32 @@ from gi.repository import Gtk
 class ValueView:
     """A text field consisting of a label, a text box and a button for editing and saving."""
 
-    def __init__(self, label, obj, attr):
+    def __init__(self, label, obj, attr, multiline=True):
         self._obj = obj
         self._attr = attr
 
         self._label = Gtk.Label(label=label, xalign=0)
 
-        self._textview_buffer = Gtk.TextBuffer()
-        self._textview = Gtk.TextView(buffer=self._textview_buffer)
-        self._textview.set_hexpand(True)
-        self._textview.set_monospace(True)
-        self._textview.set_editable(False)
+        if multiline:
+            self._textview_buffer = Gtk.TextBuffer()
+            self._textview = Gtk.TextView(buffer=self._textview_buffer)
+            self._textview.set_hexpand(True)
+            self._textview.set_monospace(True)
+            self._textview.set_editable(False)
 
-        self._textview_scroll = Gtk.ScrolledWindow()
-        self._textview_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        self._textview_scroll.set_max_content_height(200)
-        self._textview_scroll.set_propagate_natural_height(True)
-        self._textview_scroll.add(self._textview)
+            self._textview_scroll = Gtk.ScrolledWindow()
+            self._textview_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            self._textview_scroll.set_max_content_height(200)
+            self._textview_scroll.set_min_content_width(500)
+            self._textview_scroll.set_propagate_natural_height(True)
+            self._textview_scroll.add(self._textview)
+        else:
+            self._textview = Gtk.Entry()
+            self._textview.set_hexpand(True)
+            self._textview.set_editable(False)
+
+            self._textview_buffer = self._textview  # TODO
+            self._textview_scroll = self._textview
 
         self.update()
 
@@ -75,7 +84,7 @@ class ValueView:
     def update(self):
         """Update the widget state according to the currently selected path."""
         if self._obj is not None:
-            text = getattr(self._obj, self._attr)
+            text = str(getattr(self._obj, self._attr))
 
             if text is not None:
                 self._textview_buffer.set_text(text)
@@ -132,7 +141,7 @@ class ValueEditView(ValueView):
         super().update()
 
         if self._obj is not None:
-            text = getattr(self._obj, self._attr)
+            text = str(getattr(self._obj, self._attr))
             self._button.set_sensitive(text is not None)
 
             if self._textview.get_editable():

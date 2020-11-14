@@ -104,9 +104,11 @@ class MyWindow(Gtk.Window):
         self.set_title("tpm2-gui")
         self.set_icon_from_file("resources/tpm.svg")
 
-        css = b"""notebook > * {
-            /* background: yellow; */
-        }"""
+        css = b"""
+        .object_details_heading {
+            font-size: 1.5em;
+        }
+        """
         self.style_provider = Gtk.CssProvider()
         self.style_provider.load_from_data(css)
 

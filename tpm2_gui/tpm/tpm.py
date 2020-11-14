@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.ec import (
+    EllipticCurvePublicNumbers,
+)
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from tpm2_pytss.binding import (
     CHAR_PTR_PTR,
     ESYS_TR_NONE,
@@ -108,7 +113,7 @@ class FAPIObject:
             ObjectType.key: "Protected Key",
             ObjectType.nv: "Protected Memory",
             ObjectType.ext_pub_key: "External Public Key",
-            ObjectType.hierarchy: "Hierarchy",
+            ObjectType.hierarchy: self.description,
             ObjectType.duplicate: "Duplicate Object",
             ObjectType.policy: "Policy",
         }[self.object_type]
@@ -196,7 +201,14 @@ class FAPIObject:
         public, _, _ = self.public_private_policy
         if public is None:
             return None
-        return hexdump(public)  # TODO PEM?
+
+        public_key_x = int.from_bytes(public[-64 - 2 : -32 - 2], "big")
+        public_key_y = int.from_bytes(public[-32:], "big")
+        public_key = EllipticCurvePublicNumbers(
+            x=public_key_x, y=public_key_y, curve=ec.SECP256R1()
+        ).public_key()
+        public_bytes = public_key.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+        return public_bytes.decode("utf-8")
 
     @property
     def private(self):
@@ -210,10 +222,8 @@ class FAPIObject:
     def policy(self):
         """Get policy of from TPM object."""
         _, _, policy = self.public_private_policy
-        if policy is None:
+        if policy is None or not policy:
             return None
-        if not policy:
-            return ""
         return json.dumps(policy, indent=3)
 
     @property

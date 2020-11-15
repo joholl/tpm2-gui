@@ -75,18 +75,25 @@ class FAPIObject:
         return None
 
     @property
+    def internals(self):
+        """Return the internal keystore data. Use with caution."""
+        if self.json_path is None:
+            return None
+
+        json_data = json.loads(self.json_path.read_bytes())
+        return ObjectInternals(json_data)
+
+    @property
     def object_type(self):
         """Return the object type of a TPM FAPI object (can be )."""
-        json_file = self.json_path
-        if json_file is None:
+        if self.json_path is None:
             return ObjectType.none
 
         # policies are not real FAPI objects, but we treat it as one
-        if "/policy/" in str(json_file):
+        if "/policy/" in str(self.json_path):
             return ObjectType.policy
 
-        json_data = json.loads(json_file.read_bytes())
-        return ObjectType(json_data["objectType"])
+        return ObjectType(self.internals.objectType)
 
     @property
     def object_type_info(self):
@@ -100,6 +107,13 @@ class FAPIObject:
             ObjectType.duplicate: "Duplicate Object",
             ObjectType.policy: "Policy",
         }[self.object_type]
+
+    @property
+    def attributes(self):
+        if self.internals and self.internals.public and self.internals.public.publicArea and self.internals.public.publicArea.objectAttributes:
+            obj_attrs_dict = self.internals.public.publicArea.objectAttributes
+            obj_attrs_list = [k for k in dir(obj_attrs_dict) if getattr(obj_attrs_dict, k)]
+            return ', '.join(obj_attrs_list)
 
     # TODO handle object types and setter exceptions
     @property
@@ -185,13 +199,13 @@ class FAPIObject:
         if public is None:
             return None
 
-        public_key_x = int.from_bytes(public[-64 - 2 : -32 - 2], "big")
+        public_key_x = int.from_bytes(public[-64 - 2 : -32 - 2], "big")  # TODO other curves and RSA
         public_key_y = int.from_bytes(public[-32:], "big")
         public_key = EllipticCurvePublicNumbers(
             x=public_key_x, y=public_key_y, curve=ec.SECP256R1()
         ).public_key()
         public_bytes = public_key.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-        return public_bytes.decode("utf-8")
+        return public_bytes.decode("utf-8").strip()
 
     @property
     def private(self):
@@ -269,3 +283,31 @@ class FAPIObject:
         """Verify signature using TPM object specified via its path."""
         print('verify "' + str(signature) + '" with ' + str(self.path))
         return signature.lower()
+
+
+class ObjectInternals():
+    """Takes a dict and makes values accessible via dot notation."""
+
+    def __init__(self, data):
+        self.data = data
+
+    def __getattr__(self, attr):
+        value = self.data[attr]
+        if isinstance(value, dict):
+            return ObjectInternals(value)
+        return value
+
+    def attrs_recursive(self, parent=""):
+        """Return a generator to all attributes."""
+        attrs_rec = []
+        sep = "." if parent else ""
+
+        for attr in dir(self):
+            child = getattr(self, attr)
+            if isinstance(child, ObjectInternals):
+                attrs_rec.extend(child.attrs_recursive(parent=f"{parent}{sep}{attr}"))
+            else:
+                attrs_rec.append(f"{parent}{sep}{attr}")
+
+    def __dir__(self):
+        return self.data.keys()

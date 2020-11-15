@@ -50,6 +50,11 @@ class ObjectDetails(Gtk.Grid):
                 "public",
             ),
             ValueView(
+                "Object Attributes",
+                self._tpm_object,
+                "attributes",
+            ),
+            ValueView(
                 "Policy",
                 self._tpm_object,
                 "policy",

@@ -110,10 +110,21 @@ class FAPIObject:
 
     @property
     def attributes(self):
-        if self.internals and self.internals.public and self.internals.public.publicArea and self.internals.public.publicArea.objectAttributes:
+        if not self.json_path:
+            return None
+
+        try:
+            # keys
             obj_attrs_dict = self.internals.public.publicArea.objectAttributes
-            obj_attrs_list = [k for k in dir(obj_attrs_dict) if getattr(obj_attrs_dict, k)]
-            return ', '.join(obj_attrs_list)
+        except KeyError:
+            try:
+                # nv indices
+                obj_attrs_dict = self.internals.public.nvPublic.attributes
+            except KeyError:
+                return None
+
+        obj_attrs_list = [k for k in dir(obj_attrs_dict) if getattr(obj_attrs_dict, k)]
+        return ', '.join(obj_attrs_list)
 
     # TODO handle object types and setter exceptions
     @property
@@ -195,25 +206,38 @@ class FAPIObject:
     @property
     def public(self):
         """Get public key portion from TPM object."""
-        public, _, _ = self.public_private_policy
-        if public is None:
+        if not self.json_path:
             return None
 
-        public_key_x = int.from_bytes(public[-64 - 2 : -32 - 2], "big")  # TODO other curves and RSA
-        public_key_y = int.from_bytes(public[-32:], "big")
+        try:
+            # external (public) keys
+            return self.internals.pem_ext_public
+        except KeyError:
+            pass
+
+        try:
+            # private EC keys
+            public_key_x = int(self.internals.public.publicArea.unique.x, 16)
+            public_key_y = int(self.internals.public.publicArea.unique.y, 16)
+            curve = {
+                "NONE": None,
+                "NIST_P192": ec.SECP192R1(),
+                "NIST_P224": ec.SECP224R1(),
+                "NIST_P256": ec.SECP256R1(),
+                "NIST_P384": ec.SECP384R1(),
+                "NIST_P521": ec.SECP521R1(),
+                "BN_P256": None,
+                "BN_P638": None,
+                "SM2_P256": None,
+            }[self.internals.public.publicArea.parameters.curveID]
+        except KeyError:
+            return None
+
         public_key = EllipticCurvePublicNumbers(
-            x=public_key_x, y=public_key_y, curve=ec.SECP256R1()
+            x=public_key_x, y=public_key_y, curve=curve
         ).public_key()
         public_bytes = public_key.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
         return public_bytes.decode("utf-8").strip()
-
-    @property
-    def private(self):
-        """Get private key portion from TPM object."""
-        _, private, _ = self.public_private_policy
-        if private is None:
-            return None
-        return hexdump(private)  # TODO PEM?
 
     @property
     def policy(self):

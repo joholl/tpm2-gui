@@ -45,7 +45,9 @@ class TPMObjectOperations(Gtk.Grid):
         operation_cmb_store.append([1, "Decrypt"])
         operation_cmb_store.append([2, "Sign"])
         operation_cmb_store.append([3, "Verify Signature"])
-        self._operation_cmb = Gtk.ComboBox.new_with_model_and_entry(operation_cmb_store)
+        self._operation_cmb = Gtk.ComboBox.new_with_model_and_entry(
+            operation_cmb_store
+        )  # TODO remove entry
         self._operation_cmb.set_entry_text_column(1)
         self._operation_cmb.set_active(0)
         self._operation_cmb.connect("changed", self._perform_operation)

@@ -4,6 +4,7 @@
 
 """Widgets to interact with TPM FAPI objects."""
 
+
 import gi  # isort:skip
 
 gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
@@ -11,7 +12,7 @@ gi.require_version("Gtk", "3.0")  # pylint: disable=wrong-import-position
 # isort:imports-thirdparty
 from gi.repository import Gtk
 
-from .widgets import ValueEditView, ValueView
+from .widgets import Encoding, ValueEditView, ValueView
 
 
 class ObjectDetails(Gtk.Grid):
@@ -38,44 +39,48 @@ class ObjectDetails(Gtk.Grid):
                 "Description",
                 self._tpm_object,
                 "description",
+                encodings=[Encoding.String],
             ),
             ValueEditView(
                 "Application Data",
                 self._tpm_object,
                 "appdata",
+                encodings=[Encoding.String, Encoding.Hex, Encoding.Hexdump],
             ),
             ValueView(
                 "Public Key",
                 self._tpm_object,
                 "public",
+                encodings=[Encoding.Info, Encoding.PEM, Encoding.DER],
             ),
             ValueView(
                 "Object Attributes",
                 self._tpm_object,
                 "attributes",
+                encodings=[Encoding.String],
             ),
             ValueView(
                 "Policy",
                 self._tpm_object,
                 "policy",
+                encodings=[Encoding.String],
             ),
             ValueEditView(
                 "Certificate",
                 self._tpm_object,
                 "certificate",
+                encodings=[Encoding.Info, Encoding.PEM, Encoding.DER],
             ),
             ValueEditView(
                 "NV (secure memory)",
                 self._tpm_object,
                 "nv",
+                encodings=[Encoding.String, Encoding.Hex, Encoding.Hexdump],
             ),
         ]
 
         for value_view in self._value_views:
-            self.attach(value_view.label, 0, row, 1, 1)
-            self.attach(value_view.textview, 1, row, 1, 1)
-            if isinstance(value_view, ValueEditView):
-                self.attach(value_view.button, 2, row, 1, 1)
+            value_view.attach_to_grid(self, row)
             row += 1
 
         self.update()

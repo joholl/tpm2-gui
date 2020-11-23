@@ -11,10 +11,12 @@ multi_line_output=3
     # TODO fix import and module issues
     disable = [
         "fixme",
-        "import-error",
         "no-name-in-module",
         "duplicate-code",
     ]
     [tool.pylint.design]
+    max-args = 8
     max-attributes = 15
+    max-returns = 8
     max-statements = 100
+    min-public-methods = 1

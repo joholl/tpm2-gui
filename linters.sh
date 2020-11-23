@@ -24,7 +24,7 @@ echo "################################# BLACK #################################"
 black --quiet --check --diff ${module} || exitcode=1
 # black ${module} 2>&1  | grep -P '^\d+ files left unchanged.' || echo error
 echo "################################# PYLINT ################################"
-pylint --score=n ${module} || exitcode=1
+pylint -j4 --score=n ${module} || exitcode=1
 # echo "################################## MYPY #################################"
 # mypy ${module}  || exitcode=1 #TODO
 echo "################################# FLAKE8 ################################"

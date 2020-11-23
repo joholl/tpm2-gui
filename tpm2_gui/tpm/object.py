@@ -8,29 +8,15 @@ import json
 from enum import Enum
 from pathlib import Path
 
+from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ec import (
     EllipticCurvePublicNumbers,
 )
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from tpm2_pytss.binding import UINT8_ARRAY
 from tpm2_pytss.exceptions import TPM2Error
-
-
-def hexdump(byte_array, line_len=16):
-    """Get hexdump from bytearray."""
-    char_map = "".join([(len(repr(chr(b))) == 3) and chr(b) or "." for b in range(256)])
-    lines = []
-
-    # for each line
-    for offset in range(0, len(byte_array), line_len):
-        line_text = byte_array[offset : offset + line_len]
-        line_hex = " ".join(["%02x" % b for b in line_text])
-        # replace non-printable chars with '.'
-        printable = "".join(["%s" % ((b <= 127 and char_map[b]) or ".") for b in line_text])
-        lines.append("%04x  %-*s  |%s|\n" % (offset, line_len * 3, line_hex, printable))
-    return "".join(lines)
 
 
 class ObjectType(Enum):
@@ -110,6 +96,7 @@ class FAPIObject:
 
     @property
     def attributes(self):
+        """Get all set TPM FAPI object attributes as a string."""
         if not self.json_path:
             return None
 
@@ -124,7 +111,7 @@ class FAPIObject:
                 return None
 
         obj_attrs_list = [k for k in dir(obj_attrs_dict) if getattr(obj_attrs_dict, k)]
-        return ', '.join(obj_attrs_list)
+        return ", ".join(obj_attrs_list)
 
     # TODO handle object types and setter exceptions
     @property
@@ -150,7 +137,7 @@ class FAPIObject:
             appdata = self._fapi_ctx.GetAppData(self.path)
             if not appdata:
                 return ""
-            return hexdump(appdata)
+            return appdata
         except TPM2Error as tpm_error:
             if tpm_error.rc in (
                 0x60020,
@@ -175,11 +162,18 @@ class FAPIObject:
     def certificate(self):
         """Get certifiacte from TPM object path."""
         try:
-            return self._fapi_ctx.GetCertificate(self.path)
+            cert_pem = self._fapi_ctx.GetCertificate(self.path)
         except TPM2Error as tpm_error:
             if tpm_error.rc in (0x60020, 0x00060024):  # TODO Could not open (2x)
                 return None
             raise tpm_error
+
+        if cert_pem is None:
+            return None
+        if not cert_pem:
+            return ""
+
+        return x509.load_pem_x509_certificate(cert_pem.encode("utf-8"))
 
     @certificate.setter
     def certificate(self, value):
@@ -211,12 +205,14 @@ class FAPIObject:
 
         try:
             # external (public) keys
-            return self.internals.pem_ext_public
+            public_key_pem = self.internals.pem_ext_public
+            print(public_key_pem)
+            return load_pem_public_key(public_key_pem.encode("utf-8"))
         except KeyError:
             pass
 
         try:
-            # private EC keys
+            # private EC key
             public_key_x = int(self.internals.public.publicArea.unique.x, 16)
             public_key_y = int(self.internals.public.publicArea.unique.y, 16)
             curve = {
@@ -230,14 +226,16 @@ class FAPIObject:
                 "BN_P638": None,
                 "SM2_P256": None,
             }[self.internals.public.publicArea.parameters.curveID]
-        except KeyError:
-            return None
 
-        public_key = EllipticCurvePublicNumbers(
-            x=public_key_x, y=public_key_y, curve=curve
-        ).public_key()
-        public_bytes = public_key.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-        return public_bytes.decode("utf-8").strip()
+            return EllipticCurvePublicNumbers(
+                x=public_key_x, y=public_key_y, curve=curve
+            ).public_key()
+        except KeyError:
+            pass
+
+        # TODO non-PEM RSA key
+
+        return None
 
     @property
     def policy(self):
@@ -252,7 +250,7 @@ class FAPIObject:
         """Get the conents of the NV memory from a given NV index."""
         try:
             data = self._fapi_ctx.NvRead(self.path)
-            return hexdump(data[0])
+            return data[0]
         except TPM2Error as tpm_error:
             if tpm_error.rc in (0x6001D, 0x60020, 0x60024, 0x14A):  # TODO
                 return None
@@ -299,7 +297,7 @@ class FAPIObject:
             )  # TODO returns sign., pub key, cert
             # except TPM2Error as tpm_error:
             #     raise tpm_error
-            return hexdump(ret[0])
+            return ret[0]
 
         return ""
 
@@ -309,7 +307,7 @@ class FAPIObject:
         return signature.lower()
 
 
-class ObjectInternals():
+class ObjectInternals:
     """Takes a dict and makes values accessible via dot notation."""
 
     def __init__(self, data):

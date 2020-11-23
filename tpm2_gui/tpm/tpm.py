@@ -17,7 +17,6 @@ from tpm2_pytss.binding import (
     ESYS_TR_RH_PLATFORM,
     TPMI_YES_NO_PTR,
     UINT8_ARRAY,
-    ByteArray,
 )
 from tpm2_pytss.esys import ESYS
 from tpm2_pytss.exceptions import TPM2Error
@@ -223,8 +222,9 @@ class TPM:  # pylint: disable=too-many-public-methods
         # Cvm6l0F4bVE8QibJg+QntesC8hLc17ASJA==
         # -----END EC PRIVATE KEY----"""
         pubkey = r"""-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUymzBzI3LcxRpqJkiP0Ks7qp1UZH
-93mYpmfUJBjK6anQawTyy8k87MteUdP5IPy47gzsO7sFcbWCoVZ8LvoQUw==
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCqGKukO1De7zhZj6+H0qtjTkVxwTCpvKe4eCZ0
+FPqri0cb2JZfXJ/DgYSF6vUpwmJG8wVQZKjeGcjDOL5UlsuusFncCzWBQ7RKNUSesmQRMSGkVb1/
+3j+skZ6UtW+5u09lHNsj6tQ51s1SPrCBkedbNf0Tp0GbMJDyR4e9T04ZZwIDAQAB
 -----END PUBLIC KEY-----"""
         self._fapi_ctx.Import("/ext/myExtPubKey", pubkey)
 
@@ -262,7 +262,7 @@ TfEw607vttBN0Y54LrVOKno1vRXd5sxyRlfB0WL42F4VG5TfcJo5u1Xq7k9m9K57
 
         # ret = self._fapi_ctx.CreateSeal("HS/SRK/mySeal", "noDa", 12, "", "", "Hello World!")
 
-        self._fapi_ctx.CreateNv("/nv/Owner/myNV", "noDa", 11, "", "")  # NV
+        self._fapi_ctx.CreateNv("/nv/Owner/myNV", "system", 11, "", "")  # NV
 
         data_size = 11
         data = UINT8_ARRAY(nelements=data_size)
@@ -270,16 +270,16 @@ TfEw607vttBN0Y54LrVOKno1vRXd5sxyRlfB0WL42F4VG5TfcJo5u1Xq7k9m9K57
             data[i] = ord(byte)
         self._fapi_ctx.NvWrite("/nv/Owner/myNV", data.cast(), data_size)  # TODO
         # b = UINT8_PTR.frompointer(None)
-        print()
 
-        buf = ByteArray(3)  # 'cast', 'frompointer', 'this'
-        buf[0] = 0
-        buf[1] = 1
-        buf[2] = 3
-        # print(dir(buf))
+        self._fapi_ctx.CreateNv("/nv/Owner/myCounter", "counter", 0, "", "")  # NV
+        self._fapi_ctx.NvIncrement("/nv/Owner/myCounter")
+        self._fapi_ctx.NvIncrement("/nv/Owner/myCounter")
 
-        # with UINT8_PTR(value=1) as data:
-        #     ret = self._fapi_ctx.NvWrite("/nv/Owner/myNV", data, 10)
+        self._fapi_ctx.CreateNv("/nv/Owner/myBitmask", "bitfield", 0, "", "")  # NV
+        self._fapi_ctx.NvSetBits("/nv/Owner/myBitmask", 0xDEADBEEF01234567)
+
+        self._fapi_ctx.CreateNv("/nv/Owner/myExtend", "pcr", 11, "", "")  # NV
+        self._fapi_ctx.NvExtend("/nv/Owner/myExtend", data.cast(), data_size, None)
 
         cert = """-----BEGIN CERTIFICATE-----
 MIIDBjCCAe4CCQDcvXBOEVM0UTANBgkqhkiG9w0BAQsFADBFMQswCQYDVQQGEwJE

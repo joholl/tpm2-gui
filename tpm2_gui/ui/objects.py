@@ -29,7 +29,7 @@ class ObjectDetails(Gtk.Grid):
         self.heading_lbl = Gtk.Label(xalign=0)
         self.heading_lbl.get_style_context().add_class("object_details_heading")
         self.heading_lbl.set_use_markup(True)
-        self.attach(self.heading_lbl, 0, row, 1, 1)
+        self.attach(self.heading_lbl, 0, row, 3, 1)
         row += 1
 
         self._value_views = [
@@ -171,8 +171,8 @@ class Objects(Gtk.TreeView):
         super().__init__()
         self._tpm = tpm
         self._store = Gtk.TreeStore(str, str)
-        self.set_hexpand(True)
-        self.set_vexpand(True)
+        self.set_hexpand(False)
+        self.set_vexpand(False)
         self.set_model(self._store)
 
         # TODO selection must be always exactly 1 (comma must not unselect)

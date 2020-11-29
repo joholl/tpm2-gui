@@ -106,19 +106,22 @@ class Config(Gtk.Grid):
 
         keystore_provisioned_lbl = Gtk.Label(label="TPM & Keystore provisioned:", xalign=0)
         self.attach(keystore_provisioned_lbl, 0, row, 1, 1)
-        self._keystore_provisioned_value_lbl = Gtk.Label(label="Yes", xalign=0)
-        self.attach(self._keystore_provisioned_value_lbl, 1, row, 1, 1)
-        self._tpm_clear_btn = Gtk.Button(label="Clear TPM & Keystore")  # TODO
+        self._keystore_provisioned_value_box = Gtk.Box()
+        self.attach(self._keystore_provisioned_value_box, 1, row, 1, 1)
+        self._tpm_clear_btn = Gtk.Button(label="Clear TPM & Keystore")
         self._tpm_clear_btn.connect("clicked", self._on_tpm_clear_btn_clicked)
         self.attach(self._tpm_clear_btn, 2, row, 1, 1)
         row += 1
 
         self._add_dummy_obj_btn = Gtk.Button(label="Add Dummy Objects")
+        self._add_dummy_obj_btn.set_halign(Gtk.Align.END)
         self._add_dummy_obj_btn.connect("clicked", self._on_add_dummy_obj_btn_clicked)
-        self.attach(self._add_dummy_obj_btn, 1, row, 1, 1)  # TODO
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=50)
+        hbox.pack_end(self._add_dummy_obj_btn, True, True, 0)
+        self.attach(hbox, 1, row, 1, 1)
         self._provision_btn = Gtk.Button(label="Provision TPM & Keystore")
         self._provision_btn.connect("clicked", self._on_provision_btn_clicked)
-        self.attach(self._provision_btn, 2, row, 1, 1)  # TODO
+        self.attach(self._provision_btn, 2, row, 1, 1)
         row += 1
 
         if on_state_change:
@@ -185,7 +188,14 @@ class Config(Gtk.Grid):
         """Update this widget. Not to be directly called internally."""
         self.config_list.update()
 
-        self._keystore_provisioned_value_lbl.set_text(str(self._tpm.is_keystore_provisioned))
+        # update provisioned icon
+        for child in list(self._keystore_provisioned_value_box.get_children()):
+            self._keystore_provisioned_value_box.remove(child)
+        if self._tpm.is_keystore_provisioned:
+            self._keystore_provisioned_value_box.add(Gtk.Image.new_from_stock(Gtk.STOCK_YES, Gtk.IconSize.MENU))
+        else:
+            self._keystore_provisioned_value_box.add(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.MENU))
+        self._keystore_provisioned_value_box.show_all()
 
         self._add_dummy_obj_btn.set_sensitive(self._tpm.is_keystore_provisioned)
         self._provision_btn.set_sensitive(not self._tpm.is_keystore_provisioned)

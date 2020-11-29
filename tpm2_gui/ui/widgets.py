@@ -60,6 +60,7 @@ class ValueView:
                 self._encoding_cmb = EncodingChooser(encodings, self._on_encoding_changed)
 
         self._label = Gtk.Label(label=label, xalign=0)
+        self._label.set_width_chars(16)
 
         if multiline:
             self._textview_model = Gtk.TextBuffer()

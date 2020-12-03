@@ -71,6 +71,7 @@ class ObjectDetails(Gtk.Grid):
                 "certificate",
                 encodings=[Encoding.Info, Encoding.PEM, Encoding.DER],
             ),
+            ValueView("NV Type", self._tpm_object, "nv_type", multiline=False),
             ValueEditView(
                 "NV (secure memory)",
                 self._tpm_object,

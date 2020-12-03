@@ -246,6 +246,22 @@ class FAPIObject:
         return json.dumps(policy, indent=3)
 
     @property
+    def nv_type(self):
+        """Get the nv type (ordinary, pcr, counter, bitfield) as string."""
+        try:
+            if not self.internals or not self.internals.nv_object:
+                return None
+        except KeyError:
+            return None
+
+        return {
+            "ORDINARY": "ordinary",
+            "EXTEND": "pcr",
+            "COUNTER": "counter",
+            "BITS": "bitfield",
+        }[self.internals.public.nvPublic.attributes.TPM2_NT]
+
+    @property
     def nv(self):  # pylint: disable=invalid-name
         """Get the conents of the NV memory from a given NV index."""
         try:

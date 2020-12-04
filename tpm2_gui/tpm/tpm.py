@@ -242,7 +242,7 @@ TfEw607vttBN0Y54LrVOKno1vRXd5sxyRlfB0WL42F4VG5TfcJo5u1Xq7k9m9K57
 8wIDAQAB
 -----END PUBLIC KEY-----"""
         policy = {
-            "description": "Description pol_signed",
+            "description": "Description of myPolicy",
             "policy": [
                 {
                     "type": "POLICYSIGNED",
@@ -255,6 +255,7 @@ TfEw607vttBN0Y54LrVOKno1vRXd5sxyRlfB0WL42F4VG5TfcJo5u1Xq7k9m9K57
         self._fapi_ctx.Import("/policy/myPolicy", str(policy))  # policy
 
         # TODO create some objects for debugging
+        self._fapi_ctx.CreateKey("HS/SRK/mySecretKey", "noDa, sign", "", "123456")  # signature
         self._fapi_ctx.CreateKey("HS/SRK/mySigKey", "noDa, sign", "", "")  # signature
         self._fapi_ctx.CreateKey("HS/SRK/myDecKey", "noDa, decrypt", "", "")  # decrypt
         self._fapi_ctx.CreateKey(

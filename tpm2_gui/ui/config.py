@@ -192,9 +192,13 @@ class Config(Gtk.Grid):
         for child in list(self._keystore_provisioned_value_box.get_children()):
             self._keystore_provisioned_value_box.remove(child)
         if self._tpm.is_keystore_provisioned:
-            self._keystore_provisioned_value_box.add(Gtk.Image.new_from_stock(Gtk.STOCK_YES, Gtk.IconSize.MENU))
+            self._keystore_provisioned_value_box.add(
+                Gtk.Image.new_from_stock(Gtk.STOCK_YES, Gtk.IconSize.MENU)
+            )
         else:
-            self._keystore_provisioned_value_box.add(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.MENU))
+            self._keystore_provisioned_value_box.add(
+                Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.MENU)
+            )
         self._keystore_provisioned_value_box.show_all()
 
         self._add_dummy_obj_btn.set_sensitive(self._tpm.is_keystore_provisioned)

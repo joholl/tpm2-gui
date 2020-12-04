@@ -6,6 +6,7 @@
 
 import contextlib
 import json
+import os
 import tempfile
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -47,6 +48,9 @@ class TPM:  # pylint: disable=too-many-public-methods
         self._using_fapi = True
         self._fapi_ctx = None
         self._esys_ctx = None
+
+        # suppress FAPI errors (TODO migrate to pytss func once supported)
+        os.environ["TSS2_LOG"] = "fapi+NONE"
 
         self.reload()
 

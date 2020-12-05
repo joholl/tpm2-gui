@@ -32,8 +32,4 @@ flake8 ${module} || exitcode=1
 echo "################################# BANDIT ################################"
 bandit --quiet --recursive ${module} || exitcode=1
 
-# Format
-isort ${files}
-black ${module}
-
 test "${exitcode}" = 0

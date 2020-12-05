@@ -27,6 +27,7 @@ from tpm2_pytss.util.simulator import Simulator
 
 from .info import TPMInfo
 from .object import FAPIObject
+from .util import cached_getter_with_args
 
 
 class TPM:  # pylint: disable=too-many-public-methods
@@ -336,6 +337,7 @@ VrpSGMIFSu301A==
                 subtree = subtree[parent]
         return tree
 
+    @cached_getter_with_args
     def fapi_object(self, path):  # pylint: disable=invalid-name
         """Return a FAPIObject from a path."""
         return FAPIObject(  # TODO return error if path is not in list?

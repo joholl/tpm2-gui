@@ -18,6 +18,8 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from tpm2_pytss.binding import UINT8_ARRAY
 from tpm2_pytss.exceptions import TPM2Error
 
+from .util import cached
+
 
 class ObjectType(Enum):
     """TPM FAPI object types."""
@@ -42,6 +44,7 @@ class FAPIObject:
         self.path = path
 
     @property
+    @cached
     def json_path(self):
         """Return the path to the keystore json file (or None if does not exist)."""
         # strip leading '/' from path
@@ -61,6 +64,7 @@ class FAPIObject:
         return None
 
     @property
+    @cached
     def internals(self):
         """Return the internal keystore data. Use with caution."""
         if self.json_path is None:
@@ -70,6 +74,7 @@ class FAPIObject:
         return ObjectInternals(json_data)
 
     @property
+    @cached
     def object_type(self):
         """Return the object type of a TPM FAPI object (can be )."""
         if self.json_path is None:
@@ -82,6 +87,7 @@ class FAPIObject:
         return ObjectType(self.internals.objectType)
 
     @property
+    @cached
     def object_type_info(self):
         """Return the object type of a TPM FAPI object (can be )."""
         return {
@@ -95,6 +101,7 @@ class FAPIObject:
         }[self.object_type]
 
     @property
+    @cached
     def attributes(self):
         """Get all set TPM FAPI object attributes as a string."""
         if not self.json_path:
@@ -115,6 +122,7 @@ class FAPIObject:
 
     # TODO handle object types and setter exceptions
     @property
+    @cached
     def description(self):
         """Get description from TPM object."""
         try:
@@ -125,11 +133,13 @@ class FAPIObject:
             raise tpm_error
 
     @description.setter
+    @cached
     def description(self, value):
         """Set description of TPM object."""
         self._fapi_ctx.SetDescription(self.path, value)
 
     @property
+    @cached
     def appdata(self):
         """Get application data of TPM object."""
 
@@ -159,6 +169,7 @@ class FAPIObject:
         self._fapi_ctx.SetAppData(self.path, app_data.cast(), app_data_size)
 
     @property
+    @cached
     def certificate(self):
         """Get certifiacte from TPM object path."""
         try:
@@ -181,6 +192,7 @@ class FAPIObject:
         self._fapi_ctx.SetCertificate(self.path, value)
 
     @property
+    @cached
     def public_private_policy(self):
         """Get public and private portion as well as policy from TPM object path."""
 
@@ -198,6 +210,7 @@ class FAPIObject:
         return (public, private, policy)
 
     @property
+    @cached
     def public(self):
         """Get public key portion from TPM object."""
         if not self.json_path:
@@ -238,6 +251,7 @@ class FAPIObject:
         return None
 
     @property
+    @cached
     def policy(self):
         """Get policy of from TPM object."""
         _, _, policy = self.public_private_policy
@@ -246,6 +260,7 @@ class FAPIObject:
         return json.dumps(policy, indent=3)
 
     @property
+    @cached
     def nv_type(self):
         """Get the nv type (ordinary, pcr, counter, bitfield) as string."""
         try:
@@ -262,6 +277,7 @@ class FAPIObject:
         }[self.internals.public.nvPublic.attributes.TPM2_NT]
 
     @property
+    @cached
     def nv(self):  # pylint: disable=invalid-name
         """Get the conents of the NV memory from a given NV index."""
         try:

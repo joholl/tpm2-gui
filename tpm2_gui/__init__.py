@@ -35,6 +35,16 @@ class MyWindow(Gtk.Window):
         self.set_icon_from_file("resources/tpm.svg")
 
         css = b"""
+        textview.view {
+            padding: 8px;
+        }
+        notebook stack {
+            padding: 16px;
+        }
+
+        .object_details {
+            padding: 32px;
+        }
         .object_details_heading {
             font-size: 1.5em;
         }

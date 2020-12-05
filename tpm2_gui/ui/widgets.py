@@ -58,6 +58,8 @@ class ValueView:
             self._encoding = encodings[0]
             if len(encodings) > 1:
                 self._encoding_cmb = EncodingChooser(encodings, self._on_encoding_changed)
+                self._encoding_cmb_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+                self._encoding_cmb_vbox.add(self._encoding_cmb)
 
         self._label = Gtk.Label(label=label, xalign=0)
         self._label.set_width_chars(16)
@@ -69,12 +71,15 @@ class ValueView:
             self._textview.set_monospace(True)
             self._textview.set_editable(False)
 
-            self._textview_widget = Gtk.ScrolledWindow()
-            self._textview_widget.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-            self._textview_widget.set_max_content_height(200)
-            self._textview_widget.set_min_content_width(500)
-            self._textview_widget.set_propagate_natural_height(True)
-            self._textview_widget.add(self._textview)
+            scroll = Gtk.ScrolledWindow()
+            scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            scroll.set_max_content_height(200)
+            scroll.set_min_content_width(500)
+            scroll.set_propagate_natural_height(True)
+            scroll.add(self._textview)
+            frame = Gtk.Frame()
+            frame.add(scroll)
+            self._textview_widget = frame
         else:
             self._textview = Gtk.Entry()
             self._textview.set_hexpand(True)
@@ -99,14 +104,14 @@ class ValueView:
         self._label.hide()
         self._textview_widget.hide()
         if self._encoding_cmb:
-            self._encoding_cmb.hide()
+            self._encoding_cmb_vbox.hide()
 
     def show(self):
         """Show all associated widgets."""
         self._label.show()
         self._textview_widget.show()
         if self._encoding_cmb:
-            self._encoding_cmb.show()
+            self._encoding_cmb_vbox.show()
 
     def automatic_visibility(self):
         """Show if TPM attribute exists for path, hide otherwise."""
@@ -125,7 +130,7 @@ class ValueView:
         grid.attach(self._label, 0, row, 1, 1)
         grid.attach(self._textview_widget, 1, row, 1, 1)
         if self._encoding_cmb:
-            grid.attach(self._encoding_cmb, 2, row, 1, 1)
+            grid.attach(self._encoding_cmb_vbox, 2, row, 1, 1)
 
     def update(self):
         """Update the widget state according to the currently selected path."""
@@ -144,6 +149,8 @@ class ValueEditView(ValueView):
 
         self._button = Gtk.Button(label="Edit")
         self._button.connect("clicked", self._on_button_clicked)
+        self._button_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self._button_vbox.add(self._button)
 
         self.update()
 
@@ -165,12 +172,12 @@ class ValueEditView(ValueView):
     def hide(self):
         """Hide all associated widgets."""
         super().hide()
-        self._button.hide()
+        self._button_vbox.hide()
 
     def show(self):
         """Show all associated widgets."""
         super().show()
-        self._button.show()
+        self._button_vbox.show()
 
     def reset(self):  # pylint: disable=unused-argument
         """Reset all widget state."""
@@ -179,7 +186,7 @@ class ValueEditView(ValueView):
 
     def attach_to_grid(self, grid, row):
         super().attach_to_grid(grid, row)
-        grid.attach(self._button, 3, row, 1, 1)
+        grid.attach(self._button_vbox, 3, row, 1, 1)
 
     def update(self):
         """Update the widget state according to the currently selected path."""

@@ -24,6 +24,8 @@ class ObjectDetails(Gtk.Grid):
         self._path = None
         self._tpm_object = None
 
+        self.get_style_context().add_class("object_details")
+
         row = 0
 
         self.heading_lbl = Gtk.Label(xalign=0)

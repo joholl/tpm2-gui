@@ -31,7 +31,7 @@ class MyWindow(Gtk.Window):
         Gtk.Window.__init__(self, title="Library", application=app)
         self.set_default_size(1300, 800)
         self.set_border_width(10)
-        self.set_title("tpm2-gui")
+        self.set_title("tpm2_gui")
         #self.set_icon_from_file("resources/tpm.svg")
 
         css = b"""

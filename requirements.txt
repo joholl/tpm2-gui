@@ -1,1 +1,3 @@
-tpm2-pytss >= 0.1.6
+tpm2-pytss > 0.1.9
+pyobject3
+cryptography

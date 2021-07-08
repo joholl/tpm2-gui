@@ -4,7 +4,7 @@
 
 <img src="https://github.com/joholl/tpm2-gui/blob/master/resources/tpm.svg" width="10%">
 
-**This is project is at an early development stage. Use at your own risk.**
+**This is project is halted temporarily since [tpm2-pytss](https://github.com/tpm2-software/tpm2-pytss) is currently re-written. Sorry for the inconvenience.**
 
 This is a GUI tool to the Trusted Platform Module (TPM). Specifically,
 tpm2_gui provides a user-friendly interface to the [TPM Software Stack
